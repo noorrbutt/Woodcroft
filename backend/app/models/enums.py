@@ -137,3 +137,91 @@ class PersonalizationInputType(StrEnum):
     MONOGRAM = "monogram"        # 2-3 initials
     SELECT = "select"            # font, placement
     DIMENSIONS = "dimensions"    # custom length/width/height
+
+
+class ReservationStatus(StrEnum):
+    ACTIVE = "active"
+    CONSUMED = "consumed"   # became an order line
+    RELEASED = "released"   # checkout abandoned
+    EXPIRED = "expired"     # swept by the worker
+
+
+class MovementReason(StrEnum):
+    SALE = "sale"
+    RESTOCK = "restock"
+    RETURN = "return"
+    CANCELLATION = "cancellation"
+    DAMAGE = "damage"
+    CORRECTION = "correction"
+    INITIAL = "initial"
+
+
+class OrderStatus(StrEnum):
+    """Lifecycle of an order.
+
+    Forward transitions are enforced by the order service; the terminal states
+    are DELIVERED, CANCELLED and REFUNDED.
+    """
+
+    PENDING = "pending"                # placed, awaiting confirmation
+    CONFIRMED = "confirmed"            # COD confirmed / payment captured
+    PROCESSING = "processing"          # being made or picked
+    SHIPPED = "shipped"
+    OUT_FOR_DELIVERY = "out_for_delivery"
+    DELIVERED = "delivered"
+    CANCELLED = "cancelled"
+    REFUNDED = "refunded"
+
+    @property
+    def is_terminal(self) -> bool:
+        return self in {OrderStatus.DELIVERED, OrderStatus.CANCELLED, OrderStatus.REFUNDED}
+
+    @property
+    def label(self) -> str:
+        return self.value.replace("_", " ").title()
+
+
+class PaymentStatus(StrEnum):
+    PENDING = "pending"
+    AUTHORIZED = "authorized"
+    PAID = "paid"
+    FAILED = "failed"
+    REFUNDED = "refunded"
+    PARTIALLY_REFUNDED = "partially_refunded"
+    CANCELLED = "cancelled"
+
+
+class PaymentMethodCode(StrEnum):
+    COD = "cod"
+    JAZZCASH = "jazzcash"
+    EASYPAISA = "easypaisa"
+
+
+class ShipmentStatus(StrEnum):
+    PENDING = "pending"
+    DISPATCHED = "dispatched"
+    IN_TRANSIT = "in_transit"
+    OUT_FOR_DELIVERY = "out_for_delivery"
+    DELIVERED = "delivered"
+    FAILED = "failed"
+    RETURNED = "returned"
+
+
+class ReturnStatus(StrEnum):
+    REQUESTED = "requested"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    IN_TRANSIT = "in_transit"
+    RECEIVED = "received"
+    REFUNDED = "refunded"
+    CANCELLED = "cancelled"
+
+
+class ReturnReason(StrEnum):
+    DAMAGED = "damaged"
+    DEFECTIVE = "defective"
+    WRONG_ITEM = "wrong_item"
+    NOT_AS_DESCRIBED = "not_as_described"
+    CHANGED_MIND = "changed_mind"
+    SIZE_ISSUE = "size_issue"
+    OTHER = "other"

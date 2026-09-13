@@ -23,6 +23,31 @@ from app.models.catalog import (  # noqa: F401
     Tag,
     VariantOptionValue,
 )
+from app.models.cart import (  # noqa: F401
+    AbandonedCart,
+    Cart,
+    CartItem,
+    SavedForLater,
+    WishlistItem,
+)
+from app.models.inventory import (  # noqa: F401
+    StockLevel,
+    StockMovement,
+    StockReservation,
+)
+from app.models.order import (  # noqa: F401
+    Order,
+    OrderEvent,
+    OrderItem,
+    Payment,
+    PaymentMethod,
+    PaymentTransaction,
+    Refund,
+    ReturnItem,
+    ReturnRequest,
+    Shipment,
+    ShipmentItem,
+)
 from app.models.identity import (  # noqa: F401
     Address,
     EmailVerification,
@@ -35,13 +60,22 @@ from app.models.identity import (  # noqa: F401
 )
 
 __all__ = [
+    "AbandonedCart",
     "Address",
     "BackInStockSubscription",
+    "Cart",
+    "CartItem",
     "Category",
     "EmailVerification",
     "GuestSession",
     "NotificationPreference",
+    "Order",
+    "OrderEvent",
+    "OrderItem",
     "PasswordReset",
+    "Payment",
+    "PaymentMethod",
+    "PaymentTransaction",
     "PersonalizationOption",
     "PriceWatch",
     "Product",
@@ -55,8 +89,18 @@ __all__ = [
     "ProductVariant",
     "RecentlyViewed",
     "RefreshToken",
+    "Refund",
+    "ReturnItem",
+    "ReturnRequest",
+    "SavedForLater",
+    "Shipment",
+    "ShipmentItem",
     "StaffPermissionGrant",
+    "StockLevel",
+    "StockMovement",
+    "StockReservation",
     "Tag",
     "User",
     "VariantOptionValue",
+    "WishlistItem",
 ]
