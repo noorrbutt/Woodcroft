@@ -80,6 +80,9 @@ foreach ($db in @($DevDb, $TestDb)) {
     foreach ($ext in $exts) {
         Invoke-Sql -Database $db -Sql "CREATE EXTENSION IF NOT EXISTS $ext;" | Out-Null
     }
+    # The app role must OWN the schema, not merely have rights on it, or
+    # the seeder cannot DROP SCHEMA to do a clean rebuild.
+    Invoke-Sql -Database $db -Sql "ALTER SCHEMA public OWNER TO $AppUser;" | Out-Null
     Invoke-Sql -Database $db -Sql "GRANT ALL ON SCHEMA public TO $AppUser;" | Out-Null
     Write-Host "    extensions ready: $($exts -join ', ')" -ForegroundColor DarkGray
 }

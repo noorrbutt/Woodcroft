@@ -1,0 +1,130 @@
+"""Seed CLI.
+
+    python -m app.seed --fresh            wipe and rebuild everything
+    python -m app.seed --append           add anything missing, touch nothing else
+    python -m app.seed --fresh --no-images   skip plate generation, much faster
+
+Image generation is the slow part by a wide margin, so --no-images exists for
+when you are iterating on data rather than looking at the storefront.
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+import time
+
+from sqlalchemy import text
+
+from app.core.config import settings
+from app.db.session import SessionLocal, engine
+from app.seed.engagement import seed_engagement
+from app.seed.orders import seed_orders
+from app.seed.people import DEMO_ACCOUNTS, seed_people
+from app.seed.promotions import seed_promotions
+from app.seed.runner import Seeder
+
+
+def reset_schema() -> None:
+    """Drop and rebuild the schema, then re-stamp Alembic.
+
+    Faster and more reliable than deleting rows in dependency order, and it
+    guarantees the result matches the models exactly.
+    """
+    from app.db.base import Base
+
+    import app.models  # noqa: F401
+
+    with engine.begin() as conn:
+        conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
+        conn.execute(text("CREATE SCHEMA public"))
+        for extension in ("pg_trgm", "citext", "unaccent", "btree_gin"):
+            conn.execute(text(f"CREATE EXTENSION IF NOT EXISTS {extension}"))
+
+    Base.metadata.create_all(engine)
+
+    # Stamp the migration head so `alembic upgrade` is a no-op afterwards
+    # rather than trying to recreate tables that already exist.
+    try:
+        from alembic import command
+        from alembic.config import Config
+
+        cfg = Config(str(settings.media_path.parent / "alembic.ini"))
+        cfg.set_main_option("script_location", str(settings.media_path.parent / "alembic"))
+        command.stamp(cfg, "head")
+    except Exception as exc:  # pragma: no cover - convenience only
+        print(f"  note: could not stamp alembic head ({exc})")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(prog="app.seed")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--fresh", action="store_true",
+                      help="drop everything and rebuild")
+    mode.add_argument("--append", action="store_true",
+                      help="add what is missing, leave the rest alone")
+    parser.add_argument("--no-images", action="store_true",
+                        help="skip plate generation")
+    parser.add_argument("--orders", type=int, default=260,
+                        help="how many orders to create")
+    args = parser.parse_args()
+
+    if not args.fresh and not args.append:
+        parser.error("choose --fresh or --append")
+
+    started = time.perf_counter()
+    print(f"\nSeeding Woodcroft ({'fresh' if args.fresh else 'append'})")
+    print(f"Database: {settings.DATABASE_URL.split('@')[-1]}")
+    if args.no_images:
+        print("Images:   skipped")
+    print()
+
+    if args.fresh:
+        print("Resetting schema")
+        reset_schema()
+
+    db = SessionLocal()
+    try:
+        seeder = Seeder(db, with_images=not args.no_images)
+
+        print("Store configuration")
+        seeder.seed_settings()
+
+        print("Catalogue")
+        seeder.seed_categories()
+        seeder.seed_products()
+
+        print("People")
+        seed_people(seeder)
+
+        print("Promotions")
+        seed_promotions(seeder)
+
+        print("Orders")
+        seed_orders(seeder, count=args.orders)
+
+        print("Reviews and content")
+        seed_engagement(seeder)
+
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+    elapsed = time.perf_counter() - started
+    print(f"\nDone in {elapsed:.1f}s\n")
+    print("Sign in with:")
+    for email, name, role, password in DEMO_ACCOUNTS:
+        print(f"  {role.value:9} {email:26} {password}")
+    print()
+    print("  Storefront  http://localhost:5173")
+    print("  Admin       http://localhost:5173/admin")
+    print("  API docs    http://localhost:8000/docs")
+    print()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
