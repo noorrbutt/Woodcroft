@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Check, FileDown, Heart, Minus, Plus, Truck } from 'lucide-react'
+import { Check, FileDown, Heart, Truck } from 'lucide-react'
 
 import { get } from '@/lib/api'
 import { cn } from '@/lib/cn'
@@ -19,10 +19,6 @@ import {
   Rating,
   SectionHeading,
   Skeleton,
-  Tab,
-  TabList,
-  TabPanel,
-  Tabs,
 } from '@/components/ui'
 import { ProductGrid } from '@/features/catalog/ProductCard'
 import {

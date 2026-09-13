@@ -279,8 +279,14 @@ export function Badge({
 }
 
 /* ── Skeleton ────────────────────────────────────────────────────────────── */
-export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn('wc-skeleton', className)} aria-hidden />
+export function Skeleton({
+  className,
+  style,
+}: {
+  className?: string
+  style?: React.CSSProperties
+}) {
+  return <div className={cn('wc-skeleton', className)} style={style} aria-hidden />
 }
 
 /* ── Breadcrumbs ─────────────────────────────────────────────────────────── */

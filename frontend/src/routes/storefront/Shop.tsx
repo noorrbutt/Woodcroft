@@ -4,10 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { SlidersHorizontal, X } from 'lucide-react'
 
 import { get } from '@/lib/api'
-import { cn } from '@/lib/cn'
 import { formatPkr } from '@/lib/format'
 import {
-  Badge,
   Breadcrumbs,
   Button,
   Checkbox,

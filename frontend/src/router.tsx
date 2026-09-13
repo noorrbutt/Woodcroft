@@ -12,28 +12,44 @@ import { HomePage } from '@/routes/storefront/Home'
 import { ShopPage } from '@/routes/storefront/Shop'
 import { ProductPage } from '@/routes/storefront/Product'
 
-const CartPage = lazy(() => import('@/routes/storefront/Cart'))
-const CheckoutPage = lazy(() => import('@/routes/storefront/Checkout'))
-const OrderConfirmationPage = lazy(() => import('@/routes/storefront/OrderConfirmation'))
-const LoginPage = lazy(() => import('@/routes/storefront/Login'))
-const RegisterPage = lazy(() => import('@/routes/storefront/Register'))
-const ForgotPasswordPage = lazy(() => import('@/routes/storefront/ForgotPassword'))
-const ResetPasswordPage = lazy(() => import('@/routes/storefront/ResetPassword'))
-const VerifyEmailPage = lazy(() => import('@/routes/storefront/VerifyEmail'))
-const AccountLayout = lazy(() => import('@/routes/storefront/account/AccountLayout'))
-const AccountOverview = lazy(() => import('@/routes/storefront/account/Overview'))
-const AccountOrders = lazy(() => import('@/routes/storefront/account/Orders'))
-const AccountOrderDetail = lazy(() => import('@/routes/storefront/account/OrderDetail'))
-const AccountAddresses = lazy(() => import('@/routes/storefront/account/Addresses'))
-const AccountProfile = lazy(() => import('@/routes/storefront/account/Profile'))
-const AccountWishlist = lazy(() => import('@/routes/storefront/account/Wishlist'))
-const AccountSecurity = lazy(() => import('@/routes/storefront/account/Security'))
-const ComparePage = lazy(() => import('@/routes/storefront/Compare'))
-const JournalPage = lazy(() => import('@/routes/storefront/Journal'))
-const JournalPostPage = lazy(() => import('@/routes/storefront/JournalPost'))
-const StaticPage = lazy(() => import('@/routes/storefront/StaticPage'))
-const FaqPage = lazy(() => import('@/routes/storefront/Faq'))
-const ContactPage = lazy(() => import('@/routes/storefront/Contact'))
+const Commerce = () => import('@/routes/storefront/commerce')
+const Auth = () => import('@/routes/storefront/auth')
+const Account = () => import('@/routes/storefront/account')
+const Content = () => import('@/routes/storefront/content')
+
+/** Lazy-load one named export from a shared page module. */
+function page<M extends Record<string, unknown>>(
+  loader: () => Promise<M>,
+  name: keyof M & string,
+) {
+  return lazy(async () => ({ default: (await loader())[name] as React.ComponentType }))
+}
+
+const CartPage = page(Commerce, 'CartPage')
+const CheckoutPage = page(Commerce, 'CheckoutPage')
+const OrderConfirmationPage = page(Commerce, 'OrderConfirmationPage')
+const ComparePage = page(Commerce, 'ComparePage')
+
+const LoginPage = page(Auth, 'LoginPage')
+const RegisterPage = page(Auth, 'RegisterPage')
+const ForgotPasswordPage = page(Auth, 'ForgotPasswordPage')
+const ResetPasswordPage = page(Auth, 'ResetPasswordPage')
+const VerifyEmailPage = page(Auth, 'VerifyEmailPage')
+
+const AccountLayout = page(Account, 'AccountLayout')
+const AccountOverview = page(Account, 'AccountOverview')
+const AccountOrders = page(Account, 'AccountOrders')
+const AccountOrderDetail = page(Account, 'AccountOrderDetail')
+const AccountAddresses = page(Account, 'AccountAddresses')
+const AccountProfile = page(Account, 'AccountProfile')
+const AccountWishlist = page(Account, 'AccountWishlist')
+const AccountSecurity = page(Account, 'AccountSecurity')
+
+const JournalPage = page(Content, 'JournalPage')
+const JournalPostPage = page(Content, 'JournalPostPage')
+const StaticPage = page(Content, 'StaticPageView')
+const FaqPage = page(Content, 'FaqPage')
+const ContactPage = page(Content, 'ContactPage')
 
 const AdminApp = lazy(() => import('@/routes/admin/AdminApp'))
 

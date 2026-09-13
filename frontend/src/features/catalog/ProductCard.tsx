@@ -128,7 +128,7 @@ export function ProductCard({
 export function ProductCardSkeleton() {
   return (
     <div>
-      <Skeleton className="w-full" style={{ aspectRatio: '4 / 5' } as never} />
+      <Skeleton className="w-full" style={{ aspectRatio: '4 / 5' }} />
       <div className="space-y-2 pt-3.5">
         <Skeleton className="h-2.5 w-16" />
         <Skeleton className="h-4 w-3/4" />
