@@ -31,8 +31,12 @@ SortKey = Literal[
     "relevance", "newest", "price_asc", "price_desc", "rating", "bestselling"
 ]
 
-#: Below this trigram similarity a suggestion is more confusing than helpful.
-DID_YOU_MEAN_THRESHOLD = 0.3
+#: Below this a suggestion is more confusing than helpful.
+#: Note this is word_similarity, not similarity: plain similarity compares
+#: whole strings, so a short query against a long product name scores near
+#: zero and nothing is ever suggested.
+DID_YOU_MEAN_THRESHOLD = 0.35
+AUTOCOMPLETE_THRESHOLD = 0.3
 
 
 def live_products() -> Select:
@@ -265,12 +269,12 @@ def suggest_correction(db: Session, query: str) -> str | None:
     row = db.execute(
         select(
             Product.name,
-            func.similarity(Product.name, query).label("score"),
+            func.word_similarity(query, Product.name).label("score"),
         )
         .where(
             Product.status == ProductStatus.ACTIVE,
             Product.deleted_at.is_(None),
-            func.similarity(Product.name, query) > DID_YOU_MEAN_THRESHOLD,
+            func.word_similarity(query, Product.name) > DID_YOU_MEAN_THRESHOLD,
         )
         .order_by(text("score DESC"))
         .limit(1)
@@ -287,18 +291,25 @@ def autocomplete(db: Session, query: str, limit: int = 8) -> dict[str, list]:
     if len(query.strip()) < 2:
         return {"products": [], "categories": []}
 
-    pattern = f"{query.lower()}%"
+    # Contains, not starts-with: nobody types the first word of
+    # "Lahore Six-Seat Dining Table" when they are looking for a dining table.
+    contains = f"%{query.lower()}%"
+    starts = f"{query.lower()}%"
+
     products = db.scalars(
         _with_cards(live_products())
         .where(
             or_(
-                func.lower(Product.name).like(pattern),
-                func.similarity(Product.name, query) > 0.25,
+                func.lower(Product.name).like(contains),
+                func.word_similarity(query, Product.name) > AUTOCOMPLETE_THRESHOLD,
             )
         )
         .order_by(
-            func.lower(Product.name).like(pattern).desc(),
-            func.similarity(Product.name, query).desc(),
+            # A name that starts with the query ranks above one that merely
+            # contains it, which ranks above a fuzzy match.
+            func.lower(Product.name).like(starts).desc(),
+            func.lower(Product.name).like(contains).desc(),
+            func.word_similarity(query, Product.name).desc(),
         )
         .limit(limit)
     ).all()
