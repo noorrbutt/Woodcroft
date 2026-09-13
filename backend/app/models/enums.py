@@ -225,3 +225,77 @@ class ReturnReason(StrEnum):
     CHANGED_MIND = "changed_mind"
     SIZE_ISSUE = "size_issue"
     OTHER = "other"
+
+
+class DiscountKind(StrEnum):
+    PERCENTAGE = "percentage"
+    FIXED_AMOUNT = "fixed_amount"
+    FREE_SHIPPING = "free_shipping"
+    BUY_X_GET_Y = "buy_x_get_y"
+    BUNDLE = "bundle"
+
+
+class DiscountTarget(StrEnum):
+    ORDER = "order"
+    SHIPPING = "shipping"
+    CATEGORY = "category"
+    PRODUCT = "product"
+
+
+class GiftCardStatus(StrEnum):
+    ACTIVE = "active"
+    REDEEMED = "redeemed"   # balance exhausted
+    EXPIRED = "expired"
+    CANCELLED = "cancelled"
+
+
+class LoyaltyTransactionKind(StrEnum):
+    EARNED = "earned"
+    REDEEMED = "redeemed"
+    EXPIRED = "expired"
+    ADJUSTED = "adjusted"   # manual admin correction
+    REFUNDED = "refunded"   # returned when an order is cancelled
+
+
+class ReviewStatus(StrEnum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+class NotificationChannel(StrEnum):
+    EMAIL = "email"
+    SMS = "sms"
+
+
+class NotificationStatus(StrEnum):
+    QUEUED = "queued"
+    SENT = "sent"
+    FAILED = "failed"
+    SUPPRESSED = "suppressed"   # blocked by the user's preferences
+
+
+class JobStatus(StrEnum):
+    PENDING = "pending"
+    CLAIMED = "claimed"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+
+
+class TicketStatus(StrEnum):
+    OPEN = "open"
+    PENDING_CUSTOMER = "pending_customer"
+    RESOLVED = "resolved"
+    CLOSED = "closed"
+
+
+class DataRequestKind(StrEnum):
+    EXPORT = "export"
+    DELETE = "delete"
+
+
+class DataRequestStatus(StrEnum):
+    REQUESTED = "requested"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    REJECTED = "rejected"
