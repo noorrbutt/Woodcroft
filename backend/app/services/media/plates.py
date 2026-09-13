@@ -367,3 +367,51 @@ def write_og_image(root: Path, rel_path: str, species: WoodSpecies, key: str) ->
     target.parent.mkdir(parents=True, exist_ok=True)
     card.save(f"{target}_og.webp", "WEBP", quality=85)
     return f"{rel_path}_og"
+
+
+def write_hero(root: Path, rel_path: str = "hero/workshop", width: int = 2400,
+               height: int = 1500) -> dict:
+    """A wide full-bleed wood field for the homepage hero.
+
+    Deliberately not a product plate. A plate is a framed panel on a paper
+    ground, so using one as a hero puts a visible vertical edge down the page
+    wherever the panel stops. This is edge-to-edge grain with no framing.
+    """
+    texture = wood_texture(WoodSpecies.WALNUT, 1)
+
+    # Tile horizontally so a wide hero is covered without stretching the grain
+    # into something that no longer reads as timber.
+    tile_w = int(TEXTURE_W * (height / TEXTURE_H))
+    scaled = texture.resize((tile_w, height), Image.LANCZOS)
+
+    canvas = Image.new("RGB", (width, height))
+    x = 0
+    flip = False
+    while x < width:
+        piece = scaled.transpose(Image.FLIP_LEFT_RIGHT) if flip else scaled
+        canvas.paste(piece, (x, 0))
+        x += tile_w
+        flip = not flip
+
+    # Soften the seams the tiling leaves behind.
+    canvas = canvas.filter(ImageFilter.GaussianBlur(0.8))
+    canvas = ImageEnhance.Brightness(canvas).enhance(0.82)
+    canvas = ImageEnhance.Contrast(canvas).enhance(0.92)
+
+    target = root / rel_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    for size in (800, 1600, 2400):
+        piece = canvas.copy()
+        piece.thumbnail((size, size), Image.LANCZOS)
+        piece.save(f"{target}_{size}.webp", "WEBP", quality=80, method=2)
+
+    return {
+        "base_path": rel_path,
+        "sizes": [800, 1600, 2400],
+        "width": canvas.width,
+        "height": canvas.height,
+        "aspect": round(canvas.width / canvas.height, 4),
+        "blur_data_url": blur_data_url(canvas),
+        "source": "generated",
+        "checksum": None,
+    }

@@ -17,12 +17,6 @@ import type { Category, ProductList } from '@/lib/types'
  */
 
 function Hero() {
-  const { data } = useQuery({
-    queryKey: ['products', 'hero'],
-    queryFn: () => get<ProductList>('/products', { featured: true, per_page: 1 }),
-  })
-  const image = data?.items[0]?.primary_image
-
   return (
     <section
       className="relative overflow-hidden bg-inverse text-on-inverse"
@@ -31,26 +25,27 @@ function Hero() {
          screen in the whole site. */
       style={{ minHeight: 'min(88svh, 860px)' }}
     >
-      {image && (
-        <div className="absolute inset-0">
-          <img
-            src={image.url}
-            srcSet={image.srcset}
-            sizes="100vw"
-            alt=""
-            aria-hidden
-            fetchPriority="high"
-            className="wc-kenburns size-full object-cover opacity-45"
-          />
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                'linear-gradient(100deg, rgb(20 15 10 / 0.92) 0%, rgb(20 15 10 / 0.7) 42%, rgb(20 15 10 / 0.28) 100%)',
-            }}
-          />
-        </div>
-      )}
+      <div className="absolute inset-0 overflow-hidden">
+        {/* A dedicated edge-to-edge wood field, not a product plate. A plate
+            is a framed panel on paper, so it leaves a visible vertical seam
+            down the hero wherever the panel stops. */}
+        <img
+          src="/media/hero/workshop_2400.webp"
+          srcSet="/media/hero/workshop_800.webp 800w, /media/hero/workshop_1600.webp 1600w, /media/hero/workshop_2400.webp 2400w"
+          sizes="100vw"
+          alt=""
+          aria-hidden
+          fetchPriority="high"
+          className="wc-kenburns size-full object-cover opacity-55"
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'linear-gradient(102deg, rgb(18 13 9 / 0.94) 0%, rgb(18 13 9 / 0.78) 38%, rgb(18 13 9 / 0.42) 72%, rgb(18 13 9 / 0.55) 100%)',
+          }}
+        />
+      </div>
 
       <div className="wc-container relative flex flex-col justify-center" style={{ minHeight: 'min(88svh, 860px)' }}>
         <div className="max-w-2xl py-24">
@@ -131,7 +126,7 @@ function Collections() {
             <Link
               key={category.id}
               to={`/collections/${category.slug}`}
-              className="group relative flex min-h-[13rem] flex-col justify-end overflow-hidden bg-sunken p-6 wc-lift"
+              className="group relative flex min-h-[15rem] flex-col justify-end overflow-hidden border border-line bg-[var(--walnut-100)] p-6 wc-lift dark:bg-[var(--wc-surface-raised)]"
             >
               <div className="wc-grain absolute inset-0" aria-hidden />
               <span className="wc-numeral relative mb-2">
