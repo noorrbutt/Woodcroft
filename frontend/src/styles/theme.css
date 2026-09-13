@@ -1,0 +1,316 @@
+@import "tailwindcss";
+
+/* ============================================================================
+   Woodcroft — "Warm Atelier"
+   ----------------------------------------------------------------------------
+   Light-first editorial luxury. Bone paper, walnut ink, deep forest, brass.
+
+   Two rules keep this coherent, and breaking either is how it starts to look
+   generic:
+
+   1. Components theme through SEMANTIC tokens only. A `dark:` utility in a
+      component means a token is missing. Three exceptions are allowed and
+      marked where they occur: the product image filter, mix-blend-mode swaps,
+      and the admin sidebar.
+
+   2. Shadows are never black. The whole palette is warm, and a neutral-black
+      shadow on cream reads instantly cheap. Light mode uses rgba(61,44,30,a).
+      Dark mode barely uses shadow at all: elevation comes from surface
+      lightness steps plus a warm bevel highlight, because a black shadow on a
+      near-black ground is invisible and a white overlay turns everything grey.
+   ========================================================================= */
+
+/* ── Raw palette. Never referenced directly by a component. ───────────────── */
+:root {
+  /* Walnut: the ink and the primary brand ramp. */
+  --walnut-50:  #FAF6F0;
+  --walnut-100: #F0E7D9;
+  --walnut-200: #E0D0BA;
+  --walnut-300: #C9B294;
+  --walnut-400: #A88C6B;
+  --walnut-500: #8A6B4C;  /* 3.40:1 on canvas — UI boundaries and 24px+ only */
+  --walnut-600: #6B5138;
+  --walnut-700: #4A3527;
+  --walnut-800: #33241A;
+  --walnut-900: #1F1610;
+
+  /* Forest: the action colour. Buttons, links, success. */
+  --forest-50:  #EEF3F0;
+  --forest-100: #D3E1D8;
+  --forest-200: #A8C4B4;
+  --forest-300: #74A088;
+  --forest-400: #467A61;
+  --forest-500: #2D5C46;
+  --forest-600: #1F3D2F;
+  --forest-700: #162C22;
+  --forest-800: #0E1D16;
+
+  /* Brass: the accent. Rules, stars, sale badges, focus. Never body text. */
+  --brass-50:  #FBF5E9;
+  --brass-100: #F4E6C8;
+  --brass-200: #E8D09B;
+  --brass-300: #DBB86E;
+  --brass-400: #C9963F;  /* 3.10:1 — decorative and 24px+ only */
+  --brass-500: #AC7C2C;
+  --brass-600: #8A6122;
+  --brass-700: #64461A;
+
+  /* Terracotta: reserved exclusively for destructive and error. */
+  --clay-100: #F6E2DD;
+  --clay-400: #C4644F;
+  --clay-500: #A33A2A;
+  --clay-600: #832E20;
+
+  --amber-100: #FBEDD2;
+  --amber-500: #B8791C;
+
+  --info-100: #DDE7EF;
+  --info-500: #2F5F82;
+
+  /* ── Semantic, light. ──────────────────────────────────────────────────── */
+  --wc-canvas:          #FBF7F0;  /* page ground */
+  --wc-surface:         #FFFDF9;  /* cards, panels */
+  --wc-surface-raised:  #FFFFFF;  /* modals, popovers */
+  --wc-surface-sunken:  #F3EDE3;  /* wells, inputs at rest */
+  --wc-surface-inverse: #1F1610;
+
+  --wc-text:            #2E2419;
+  --wc-text-secondary:  #6B5B47;
+  --wc-text-tertiary:   #8A7862;
+  --wc-text-inverse:    #FBF7F0;
+
+  /* Two border tokens, not one. A divider wants to be nearly invisible while
+     a control boundary legally needs 3:1 for WCAG 1.4.11. One token cannot
+     do both jobs, and collapsing them is a real accessibility failure. */
+  --wc-border-subtle:   #E8DFD1;
+  --wc-border-control:  #B9A88E;
+  --wc-border-strong:   #4A3527;
+
+  --wc-accent:          var(--forest-600);
+  --wc-accent-hover:    var(--forest-500);
+  --wc-accent-text:     #FBF7F0;
+  --wc-brass:           var(--brass-400);
+  --wc-brass-text:      var(--brass-600);
+
+  --wc-success:         var(--forest-500);
+  --wc-success-bg:      var(--forest-50);
+  --wc-warning:         var(--amber-500);
+  --wc-warning-bg:      var(--amber-100);
+  --wc-danger:          var(--clay-500);
+  --wc-danger-bg:       var(--clay-100);
+  --wc-info:            var(--info-500);
+  --wc-info-bg:         var(--info-100);
+
+  --wc-focus:           var(--brass-500);
+  --wc-scrim:           rgb(31 22 16 / 0.55);
+
+  /* Warm-tinted shadows. Never black. */
+  --wc-shadow-sm:  0 1px 2px rgb(61 44 30 / 0.06);
+  --wc-shadow-md:  0 2px 6px rgb(61 44 30 / 0.07), 0 1px 2px rgb(61 44 30 / 0.05);
+  --wc-shadow-lg:  0 8px 24px rgb(61 44 30 / 0.10), 0 2px 6px rgb(61 44 30 / 0.06);
+  --wc-shadow-xl:  0 20px 50px rgb(61 44 30 / 0.14), 0 6px 16px rgb(61 44 30 / 0.08);
+  --wc-bevel:      none;
+
+  /* Chart colours as tokens, or Recharts falls back to its own blues and
+     breaks the palette on the screen the client stares at most. */
+  --wc-chart-1: #1F3D2F;
+  --wc-chart-2: #C9963F;
+  --wc-chart-3: #8A6B4C;
+  --wc-chart-4: #74A088;
+  --wc-chart-5: #A33A2A;
+  --wc-chart-6: #2F5F82;
+
+  /* Rhythm. Plain CSS vars, not spacing-namespace keys: Tailwind v4 generates
+     the whole spacing scale from a single --spacing value. */
+  --wc-gutter: clamp(1rem, 4vw, 3rem);
+  --wc-section-y: clamp(3.5rem, 9vw, 8rem);
+  --wc-max-w: 82rem;
+  --wc-max-w-prose: 44rem;
+
+  --wc-radius-sm: 2px;
+  --wc-radius: 3px;
+  --wc-radius-lg: 6px;
+
+  /* Motion */
+  --wc-dur-fast: 140ms;
+  --wc-dur: 260ms;
+  --wc-dur-slow: 520ms;
+  --wc-dur-reveal: 760ms;
+  --wc-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --wc-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  color-scheme: light;
+}
+
+/* ── Semantic, dark. ────────────────────────────────────────────────────────
+   The hard part of a warm light theme is its dark counterpart. Desaturating
+   to grey is the default failure, and it throws away the entire brand. Every
+   surface here keeps a brown bias (hue ~30), lifting in lightness rather than
+   shifting in hue, so it reads as a dim workshop rather than a dark app. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --wc-canvas:          #16120D;
+    --wc-surface:         #1D1813;
+    --wc-surface-raised:  #262019;
+    --wc-surface-sunken:  #120F0B;
+    --wc-surface-inverse: #FBF7F0;
+
+    --wc-text:            #F2E9DA;
+    --wc-text-secondary:  #BFAE97;
+    --wc-text-tertiary:   #8E7F6C;
+    --wc-text-inverse:    #1F1610;
+
+    --wc-border-subtle:   #322A22;
+    --wc-border-control:  #574A3C;
+    --wc-border-strong:   #BFAE97;
+
+    --wc-accent:          var(--forest-300);
+    --wc-accent-hover:    var(--forest-200);
+    --wc-accent-text:     #10190F;
+    --wc-brass:           var(--brass-300);
+    --wc-brass-text:      var(--brass-200);
+
+    --wc-success:         var(--forest-300);
+    --wc-success-bg:      #16281E;
+    --wc-warning:         #E0A643;
+    --wc-warning-bg:      #2E2412;
+    --wc-danger:          #E08C79;
+    --wc-danger-bg:       #2E1A15;
+    --wc-info:            #8FB6D2;
+    --wc-info-bg:         #16222C;
+
+    --wc-focus:           var(--brass-300);
+    --wc-scrim:           rgb(8 6 4 / 0.7);
+
+    /* Shadow is nearly invisible on a dark ground, so elevation comes from the
+       surface steps above plus this warm inset highlight along the top edge. */
+    --wc-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+    --wc-shadow-md: 0 2px 8px rgb(0 0 0 / 0.36);
+    --wc-shadow-lg: 0 10px 30px rgb(0 0 0 / 0.44);
+    --wc-shadow-xl: 0 24px 60px rgb(0 0 0 / 0.55);
+    --wc-bevel: inset 0 1px 0 rgb(255 236 206 / 0.055);
+
+    --wc-chart-1: #74A088;
+    --wc-chart-2: #DBB86E;
+    --wc-chart-3: #C9B294;
+    --wc-chart-4: #A8C4B4;
+    --wc-chart-5: #E08C79;
+    --wc-chart-6: #8FB6D2;
+
+    color-scheme: dark;
+  }
+}
+
+/* Explicit choice wins over the system preference, in both directions. */
+:root[data-theme="dark"] {
+  --wc-canvas:          #16120D;
+  --wc-surface:         #1D1813;
+  --wc-surface-raised:  #262019;
+  --wc-surface-sunken:  #120F0B;
+  --wc-surface-inverse: #FBF7F0;
+
+  --wc-text:            #F2E9DA;
+  --wc-text-secondary:  #BFAE97;
+  --wc-text-tertiary:   #8E7F6C;
+  --wc-text-inverse:    #1F1610;
+
+  --wc-border-subtle:   #322A22;
+  --wc-border-control:  #574A3C;
+  --wc-border-strong:   #BFAE97;
+
+  --wc-accent:          var(--forest-300);
+  --wc-accent-hover:    var(--forest-200);
+  --wc-accent-text:     #10190F;
+  --wc-brass:           var(--brass-300);
+  --wc-brass-text:      var(--brass-200);
+
+  --wc-success:         var(--forest-300);
+  --wc-success-bg:      #16281E;
+  --wc-warning:         #E0A643;
+  --wc-warning-bg:      #2E2412;
+  --wc-danger:          #E08C79;
+  --wc-danger-bg:       #2E1A15;
+  --wc-info:            #8FB6D2;
+  --wc-info-bg:         #16222C;
+
+  --wc-focus:           var(--brass-300);
+  --wc-scrim:           rgb(8 6 4 / 0.7);
+
+  --wc-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+  --wc-shadow-md: 0 2px 8px rgb(0 0 0 / 0.36);
+  --wc-shadow-lg: 0 10px 30px rgb(0 0 0 / 0.44);
+  --wc-shadow-xl: 0 24px 60px rgb(0 0 0 / 0.55);
+  --wc-bevel: inset 0 1px 0 rgb(255 236 206 / 0.055);
+
+  --wc-chart-1: #74A088;
+  --wc-chart-2: #DBB86E;
+  --wc-chart-3: #C9B294;
+  --wc-chart-4: #A8C4B4;
+  --wc-chart-5: #E08C79;
+  --wc-chart-6: #8FB6D2;
+
+  color-scheme: dark;
+}
+
+/* ============================================================================
+   Tailwind theme.
+
+   CRITICAL: these live in `@theme inline`, not plain `@theme`. A plain block
+   resolves var() ONCE at :root and bakes the light value into every utility,
+   so `.dark` overrides silently do nothing and dark mode appears to be broken
+   for no visible reason. `inline` emits the var() at the use site instead.
+   ========================================================================= */
+@theme inline {
+  --color-canvas: var(--wc-canvas);
+  --color-surface: var(--wc-surface);
+  --color-raised: var(--wc-surface-raised);
+  --color-sunken: var(--wc-surface-sunken);
+  --color-inverse: var(--wc-surface-inverse);
+
+  --color-ink: var(--wc-text);
+  --color-muted: var(--wc-text-secondary);
+  --color-faint: var(--wc-text-tertiary);
+  --color-on-inverse: var(--wc-text-inverse);
+
+  --color-line: var(--wc-border-subtle);
+  --color-control: var(--wc-border-control);
+  --color-strong: var(--wc-border-strong);
+
+  --color-accent: var(--wc-accent);
+  --color-accent-hover: var(--wc-accent-hover);
+  --color-on-accent: var(--wc-accent-text);
+  --color-brass: var(--wc-brass);
+  --color-brass-ink: var(--wc-brass-text);
+
+  --color-success: var(--wc-success);
+  --color-success-bg: var(--wc-success-bg);
+  --color-warning: var(--wc-warning);
+  --color-warning-bg: var(--wc-warning-bg);
+  --color-danger: var(--wc-danger);
+  --color-danger-bg: var(--wc-danger-bg);
+  --color-info: var(--wc-info);
+  --color-info-bg: var(--wc-info-bg);
+
+  --color-walnut-100: var(--walnut-100);
+  --color-walnut-200: var(--walnut-200);
+  --color-walnut-700: var(--walnut-700);
+  --color-forest-600: var(--forest-600);
+  --color-brass-100: var(--brass-100);
+  --color-brass-400: var(--brass-400);
+
+  --font-display: "Fraunces Variable", Fraunces, Georgia, "Times New Roman", serif;
+  --font-sans: "Inter Variable", Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+
+  --radius-sm: var(--wc-radius-sm);
+  --radius-DEFAULT: var(--wc-radius);
+  --radius-lg: var(--wc-radius-lg);
+
+  --shadow-sm: var(--wc-shadow-sm);
+  --shadow-md: var(--wc-shadow-md);
+  --shadow-lg: var(--wc-shadow-lg);
+  --shadow-xl: var(--wc-shadow-xl);
+
+  --ease-wc: var(--wc-ease);
+  --ease-wc-out: var(--wc-ease-out);
+}

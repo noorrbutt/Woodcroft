@@ -14,6 +14,7 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from app.api.v1 import auth as auth_router
 from app.api.v1 import catalog as catalog_router
+from app.api.v1 import checkout as checkout_router
 from app.core.config import settings
 from app.core.errors import register_exception_handlers
 from app.core.ratelimit import limiter
@@ -106,6 +107,7 @@ app.mount(
 
 app.include_router(auth_router.router, prefix=settings.API_V1_PREFIX)
 app.include_router(catalog_router.router, prefix=settings.API_V1_PREFIX)
+app.include_router(checkout_router.router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/health", tags=["meta"])
