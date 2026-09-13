@@ -1,0 +1,6 @@
+{% extends "email/_base.html" %}
+{% block content %}
+<p>Hello {{ recipient_name or "there" }},</p>
+<p>We have issued a refund of <strong>{{ amount_paisa | pkr }}</strong> for order {{ order_number }}.</p>
+<p style="font-size:13px;color:#6B5B47;">Refund method: {{ method }}. It may take a few working days to reach you.</p>
+{% endblock %}

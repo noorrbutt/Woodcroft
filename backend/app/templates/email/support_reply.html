@@ -1,0 +1,6 @@
+{% extends "email/_base.html" %}
+{% block content %}
+<p>Hello {{ recipient_name or "there" }},</p>
+<p>{{ body }}</p>
+<p style="font-size:13px;color:#6B5B47;">Ticket {{ ticket_number }}. Reply to this email to continue the conversation.</p>
+{% endblock %}

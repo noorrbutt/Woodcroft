@@ -1,0 +1,1 @@
+Woodcroft: order {{ order_number }} has been delivered. Thank you.

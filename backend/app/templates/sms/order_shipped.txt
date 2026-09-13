@@ -1,0 +1,1 @@
+Woodcroft: order {{ order_number }} shipped via {{ courier }}.{% if tracking_number %} Tracking: {{ tracking_number }}{% endif %}

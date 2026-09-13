@@ -1,0 +1,7 @@
+{% extends "email/_base.html" %}
+{% block content %}
+<p>Hello {{ recipient_name or "there" }},</p>
+<p>Your order has been delivered. We hope it looks as good in your home as it did in our workshop.</p>
+<p>If anything is not right, reply to this email and we will sort it out.</p>
+{% with url=order_url, label="View order" %}{% include "email/_button.html" %}{% endwith %}
+{% endblock %}

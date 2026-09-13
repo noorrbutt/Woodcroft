@@ -1,0 +1,6 @@
+{% extends "email/_base.html" %}
+{% block content %}
+<p>Hello {{ recipient_name or "there" }},</p>
+<p>Your order {{ order_number }} has been cancelled{% if reason %}: {{ reason }}{% endif %}.</p>
+{% if refund_paisa %}<p>A refund of {{ refund_paisa | pkr }} is being processed.</p>{% endif %}
+{% endblock %}

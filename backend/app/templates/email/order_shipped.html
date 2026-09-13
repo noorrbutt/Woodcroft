@@ -1,0 +1,11 @@
+{% extends "email/_base.html" %}
+{% block content %}
+<p>Hello {{ recipient_name or "there" }},</p>
+<p>Your order has been dispatched with {{ courier }}.</p>
+{% if tracking_number %}
+<p style="font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#8A7862;">Tracking number</p>
+<p style="font-size:18px;margin-top:-10px;font-family:monospace;">{{ tracking_number }}</p>
+{% endif %}
+<p>Estimated delivery: {{ estimated_delivery or "2 to 5 working days" }}.</p>
+{% with url=order_url, label="Track order" %}{% include "email/_button.html" %}{% endwith %}
+{% endblock %}

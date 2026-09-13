@@ -1,0 +1,7 @@
+{% extends "email/_base.html" %}
+{% block content %}
+<p>Hello {{ recipient_name or "there" }},</p>
+<p>Thanks for creating a Woodcroft account. Please confirm your email address so we can keep you updated about your orders.</p>
+{% with url=verify_url, label="Confirm email" %}{% include "email/_button.html" %}{% endwith %}
+<p style="font-size:13px;color:#6B5B47;">This link expires in {{ expires_hours }} hours. If you did not create an account, you can ignore this email.</p>
+{% endblock %}

@@ -1,0 +1,8 @@
+{% extends "email/_base.html" %}
+{% block content %}
+<p>Hello {{ recipient_name or "there" }},</p>
+<p>{{ sender_name or "Someone" }} has sent you a Woodcroft gift card worth <strong>{{ amount_paisa | pkr }}</strong>.</p>
+{% if message %}<p style="background:#F3EDE3;padding:14px;font-style:italic;">{{ message }}</p>{% endif %}
+<p style="font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#8A7862;">Your code</p>
+<p style="font-size:22px;margin-top:-10px;font-family:monospace;letter-spacing:.1em;">{{ code }}</p>
+{% endblock %}

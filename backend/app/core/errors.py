@@ -47,7 +47,7 @@ class AppError(Exception):
 
 # ── 4xx ──────────────────────────────────────────────────────────────────────
 class ValidationError(AppError):
-    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
     code = "validation_error"
     message = "The submitted data is invalid."
 
@@ -158,7 +158,7 @@ def register_exception_handlers(app: FastAPI) -> None:
             location = ".".join(str(p) for p in err["loc"][1:]) or "body"
             fields[location] = err["msg"]
         return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={
                 "error": {
                     "code": "validation_error",

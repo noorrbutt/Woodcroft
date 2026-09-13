@@ -1,0 +1,6 @@
+{% extends "email/_base.html" %}
+{% block content %}
+<p>Good news. <strong>{{ product_name }}</strong> is available again.</p>
+<p>These pieces are made in small batches, so it may not stay in stock long.</p>
+{% with url=product_url, label="View product" %}{% include "email/_button.html" %}{% endwith %}
+{% endblock %}

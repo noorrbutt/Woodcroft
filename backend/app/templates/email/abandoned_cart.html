@@ -1,0 +1,9 @@
+{% extends "email/_base.html" %}
+{% block content %}
+<p>Hello {{ recipient_name or "there" }},</p>
+<p>You have {{ item_count }} item{{ "s" if item_count != 1 else "" }} waiting in your cart, worth {{ cart_value_paisa | pkr }}.</p>
+{% if coupon_code %}
+<p style="background:#F3EDE3;padding:14px;">Use code <strong>{{ coupon_code }}</strong> to save on this order.</p>
+{% endif %}
+{% with url=cart_url, label="Return to cart" %}{% include "email/_button.html" %}{% endwith %}
+{% endblock %}

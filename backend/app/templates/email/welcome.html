@@ -1,0 +1,8 @@
+{% extends "email/_base.html" %}
+{% block content %}
+<p>Hello {{ recipient_name or "there" }},</p>
+<p>Thank you for joining us. Here is {{ discount_percent }}% off your first order.</p>
+<p style="font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#8A7862;">Your code</p>
+<p style="font-size:22px;margin-top:-10px;font-family:monospace;letter-spacing:.1em;">{{ coupon_code }}</p>
+{% with url=shop_url, label="Start shopping" %}{% include "email/_button.html" %}{% endwith %}
+{% endblock %}

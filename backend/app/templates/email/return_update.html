@@ -1,0 +1,6 @@
+{% extends "email/_base.html" %}
+{% block content %}
+<p>Hello {{ recipient_name or "there" }},</p>
+<p>Your return {{ return_number }} is now <strong>{{ status }}</strong>.</p>
+{% if note %}<p>{{ note }}</p>{% endif %}
+{% endblock %}

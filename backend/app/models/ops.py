@@ -228,7 +228,9 @@ class NotificationOutbox(BaseModel):
     )
     #: Which driver handled it: outbox, smtp, sms_gateway.
     driver: Mapped[str] = mapped_column(String(30), nullable=False, server_default="outbox")
-    attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
+    )
     last_error: Mapped[str | None] = mapped_column(Text)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     #: Set when the user's preferences blocked this message.
@@ -273,7 +275,9 @@ class JobQueue(BaseModel):
     )
     priority: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("100"))
 
-    attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
+    )
     max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("3"))
     last_error: Mapped[str | None] = mapped_column(Text)
 

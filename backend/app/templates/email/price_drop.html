@@ -1,0 +1,6 @@
+{% extends "email/_base.html" %}
+{% block content %}
+<p><strong>{{ product_name }}</strong> is now cheaper than when you saved it.</p>
+<p><span style="text-decoration:line-through;color:#8A7862;">{{ old_price_paisa | pkr }}</span> &nbsp; <strong style="font-size:18px;">{{ new_price_paisa | pkr }}</strong></p>
+{% with url=product_url, label="View product" %}{% include "email/_button.html" %}{% endwith %}
+{% endblock %}

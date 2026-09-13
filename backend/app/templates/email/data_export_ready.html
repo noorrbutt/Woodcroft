@@ -1,0 +1,7 @@
+{% extends "email/_base.html" %}
+{% block content %}
+<p>Hello {{ recipient_name or "there" }},</p>
+<p>The copy of your Woodcroft data you asked for is ready to download.</p>
+{% with url=download_url, label="Download" %}{% include "email/_button.html" %}{% endwith %}
+<p style="font-size:13px;color:#6B5B47;">This link expires in 7 days.</p>
+{% endblock %}
