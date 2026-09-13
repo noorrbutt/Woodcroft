@@ -72,3 +72,68 @@ class Courier(StrEnum):
 class TaxMode(StrEnum):
     INCLUSIVE = "inclusive"
     EXCLUSIVE = "exclusive"
+
+
+class ProductStatus(StrEnum):
+    DRAFT = "draft"
+    ACTIVE = "active"
+    ARCHIVED = "archived"
+
+
+class StockPolicy(StrEnum):
+    """What to do when a variant's available stock reaches zero."""
+
+    DENY = "deny"          # refuse to sell
+    CONTINUE = "continue"  # allow backorder
+    PREORDER = "preorder"  # sell against a known future date
+
+
+class WoodSpecies(StrEnum):
+    """Species actually used by Pakistani furniture makers.
+
+    Sheesham (Indian rosewood) and mango are the authentic local staples;
+    deodar is the Himalayan cedar used for traditional joinery.
+    """
+
+    SHEESHAM = "sheesham"
+    WALNUT = "walnut"
+    TEAK = "teak"
+    MANGO = "mango"
+    ACACIA = "acacia"
+    DEODAR = "deodar"
+    OAK = "oak"
+    PINE = "pine"
+
+    @property
+    def label(self) -> str:
+        return {
+            "sheesham": "Sheesham (Indian Rosewood)",
+            "walnut": "Walnut",
+            "teak": "Teak",
+            "mango": "Mango Wood",
+            "acacia": "Acacia",
+            "deodar": "Deodar (Himalayan Cedar)",
+            "oak": "Oak",
+            "pine": "Pine",
+        }[self.value]
+
+    @property
+    def grain_palette(self) -> tuple[str, str, str]:
+        """(base, grain, highlight) hex used by the procedural plate generator."""
+        return {
+            "sheesham": ("#5A3A24", "#3E2415", "#7C5436"),
+            "walnut": ("#5C4433", "#3B2A1E", "#806049"),
+            "teak": ("#9A6B3F", "#6E4626", "#BE8B58"),
+            "mango": ("#B9925E", "#8A6A3C", "#D8BC8A"),
+            "acacia": ("#8A5A32", "#5E3A1E", "#B07F4E"),
+            "deodar": ("#C0A176", "#93744C", "#DCC49B"),
+            "oak": ("#B99A6B", "#8C7148", "#D6BC93"),
+            "pine": ("#D9BE92", "#B2946A", "#EFDCBA"),
+        }[self.value]
+
+
+class PersonalizationInputType(StrEnum):
+    TEXT = "text"                # engraving line
+    MONOGRAM = "monogram"        # 2-3 initials
+    SELECT = "select"            # font, placement
+    DIMENSIONS = "dimensions"    # custom length/width/height
