@@ -104,6 +104,7 @@ export function LoginPage() {
 
 export function RegisterPage() {
   const [form, setForm] = useState({ full_name: '', email: '', password: '', phone: '' })
+  const [marketing, setMarketing] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -125,6 +126,7 @@ export function RegisterPage() {
         email: form.email,
         password: form.password,
         phone: form.phone || undefined,
+        email_marketing: marketing,
       })
       toast.success('Account created. Check your email to confirm it.')
       navigate('/account', { replace: true })
@@ -166,10 +168,22 @@ export function RegisterPage() {
           <Input id="password" type="password" required autoComplete="new-password"
                  value={form.password} onChange={bind('password')} />
         </Field>
+        <label className="flex items-start gap-2.5 text-xs text-muted">
+          <input
+            type="checkbox"
+            checked={marketing}
+            onChange={(e) => setMarketing(e.target.checked)}
+            className="mt-0.5 size-4 shrink-0 accent-[var(--wc-accent)]"
+          />
+          <span>Send me occasional news and offers by email. You can unsubscribe
+          any time. (Optional — we will still send order updates.)</span>
+        </label>
         <Button type="submit" fullWidth loading={loading}>Create account</Button>
         <p className="text-xs text-faint">
           By creating an account you agree to our{' '}
           <Link to="/page/terms" className="wc-link">Terms</Link> and{' '}
+          <Link to="/page/privacy" className="wc-link">Privacy Policy</Link>. We use
+          your details only to run your account and orders — see the{' '}
           <Link to="/page/privacy" className="wc-link">Privacy Policy</Link>.
         </p>
       </form>

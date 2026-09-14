@@ -248,6 +248,7 @@ export function CartPage() {
               }}
             >
               <Input
+                aria-label="Discount code"
                 placeholder="Discount code"
                 value={code}
                 onChange={(event) => setCode(event.target.value.toUpperCase())}
@@ -369,6 +370,7 @@ function GiftCardField() {
   return (
     <div className="flex gap-2">
       <Input
+        aria-label="Gift card code"
         placeholder="Gift card code"
         value={code}
         onChange={(e) => setCode(e.target.value)}
@@ -766,6 +768,11 @@ export function CheckoutPage() {
                   </>
                 }
               />
+              <p className="mt-2 text-xs text-faint">
+                We use your name, phone and address to fulfil this order and share
+                them with our delivery courier for cash on delivery. See our{' '}
+                <Link to="/page/privacy" className="wc-link" target="_blank">Privacy Policy</Link>.
+              </p>
             </div>
 
             {quoteError && (

@@ -320,8 +320,8 @@ export function ContactPage() {
               <dd><a href="mailto:hello@woodcroft.pk" className="wc-link">hello@woodcroft.pk</a></dd>
             </div>
             <div>
-              <dt className="wc-eyebrow mb-1">Phone</dt>
-              <dd className="text-muted">0300 1234567</dd>
+              <dt className="wc-eyebrow mb-1">Phone / WhatsApp</dt>
+              <dd className="text-muted">+92 315 3441833</dd>
             </div>
             <div>
               <dt className="wc-eyebrow mb-1">Hours</dt>
@@ -356,6 +356,10 @@ export function ContactPage() {
                 <Textarea id="message" required rows={6} value={form.message} onChange={bind('message')} />
               </Field>
               <Button type="submit" loading={loading} fullWidth>Send message</Button>
+              <p className="text-xs text-faint">
+                We use your details only to reply to this message. See our{' '}
+                <Link to="/page/privacy" className="wc-link">Privacy Policy</Link>.
+              </p>
             </form>
           )}
         </div>

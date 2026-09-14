@@ -75,7 +75,7 @@ function AssuranceStrip() {
   const items = [
     { icon: Hammer, title: 'Joined by hand', body: 'Mortise and tenon, cut dovetails, no flat pack.' },
     { icon: Truck, title: 'Delivered nationwide', body: 'Free over Rs 20,000. Cash on delivery available.' },
-    { icon: Leaf, title: 'Traceable timber', body: 'Every board sourced from a named mill.' },
+    { icon: Leaf, title: 'Solid timber', body: 'Real wood, chosen for its grain and built to keep.' },
   ]
   return (
     <section className="border-b border-line bg-surface">
@@ -318,10 +318,11 @@ function Story() {
                   className="font-display text-[clamp(1.6rem,3.2vw,2.15rem)] leading-[1.2] text-[var(--walnut-50)]"
                   style={{ fontVariationSettings: '"SOFT" 40, "WONK" 1, "opsz" 96' }}
                 >
-                  “They measured my alcove twice before cutting anything.”
+                  “Measure twice, cut once. The boring discipline is the
+                  whole craft.”
                 </p>
                 <figcaption className="mt-4 text-xs uppercase tracking-widest text-[var(--brass-200)]">
-                  Hira Malik — Islamabad
+                  The Woodcroft workshop
                 </figcaption>
               </blockquote>
             </div>
@@ -377,6 +378,13 @@ function Newsletter() {
                 Subscribe
               </Button>
             </form>
+          )}
+          {!subscribe.isSuccess && (
+            <p className="mt-3 max-w-md text-xs text-on-inverse opacity-70">
+              By subscribing you agree to receive marketing email and to our{' '}
+              <Link to="/page/privacy" className="underline">Privacy Policy</Link>.
+              Unsubscribe any time.
+            </p>
           )}
           {subscribe.isError && (
             <p className="mt-3 text-sm text-[var(--wc-danger)]">

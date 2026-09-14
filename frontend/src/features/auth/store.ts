@@ -14,6 +14,7 @@ interface AuthState {
     full_name: string
     phone?: string
     referral_code?: string
+    email_marketing?: boolean
   }) => Promise<void>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>

@@ -427,7 +427,7 @@ function Footer() {
             <p className="mt-4 text-xs text-faint">
               Surjani Town, Karachi, Pakistan
               <br />
-              hello@woodcroft.pk · 0300 1234567
+              hello@woodcroft.pk · +92 315 3441833
             </p>
           </div>
 
@@ -463,6 +463,7 @@ function Footer() {
               <li><Link to="/page/sustainability" className="wc-link !text-inherit hover:!text-ink">Sustainability</Link></li>
               <li><Link to="/page/terms" className="wc-link !text-inherit hover:!text-ink">Terms</Link></li>
               <li><Link to="/page/privacy" className="wc-link !text-inherit hover:!text-ink">Privacy</Link></li>
+              <li><Link to="/page/cookies" className="wc-link !text-inherit hover:!text-ink">Cookies</Link></li>
               <li><Link to="/page/accessibility" className="wc-link !text-inherit hover:!text-ink">Accessibility</Link></li>
             </ul>
           </div>
@@ -470,7 +471,7 @@ function Footer() {
 
         <div className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-line pt-6 text-xs text-faint">
           <p>© {new Date().getFullYear()} Woodcroft. All rights reserved.</p>
-          <p>Cash on delivery across Pakistan. Prices include GST.</p>
+          <p>Cash on delivery across Pakistan. Prices shown include applicable taxes.</p>
         </div>
       </div>
     </footer>

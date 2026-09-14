@@ -76,7 +76,7 @@
 
   --wc-text:            #2E2419;
   --wc-text-secondary:  #6B5B47;
-  --wc-text-tertiary:   #8A7862;
+  --wc-text-tertiary:   #6F5F49;  /* AA: ~5.8:1 on canvas (was #8A7862, failed) */
   --wc-text-inverse:    #FBF7F0;
 
   /* Two border tokens, not one. A divider wants to be nearly invisible while
