@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+# One in-flight run per branch/PR; a new push cancels the previous run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (lint, tests, migrations)
+    runs-on: ubuntu-latest
+    # Match the runtime the backend deploys on (see backend/Dockerfile).
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: woodcroft
+          POSTGRES_PASSWORD: woodcroft
+          POSTGRES_DB: woodcroft_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U woodcroft -d woodcroft_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql+psycopg://woodcroft:woodcroft@localhost:5432/woodcroft_test
+      TEST_DATABASE_URL: postgresql+psycopg://woodcroft:woodcroft@localhost:5432/woodcroft_test
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Tests (pytest)
+        run: pytest
+
+      - name: Migrations apply on a fresh database and match the models
+        # The Dockerfile runs `alembic upgrade head` at container start, so the
+        # chain must build the schema from empty (the test suite uses create_all
+        # and never exercises this). `alembic check` then fails the build if a
+        # model changed without a matching migration, which would otherwise ship
+        # a production-only schema gap while tests stay green.
+        run: |
+          python - <<'PY'
+          import psycopg
+          c = psycopg.connect(
+              "host=localhost user=woodcroft password=woodcroft dbname=woodcroft_test",
+              autocommit=True,
+          )
+          c.execute("DROP DATABASE IF EXISTS woodcroft_migrate")
+          c.execute("CREATE DATABASE woodcroft_migrate")
+          PY
+          export DATABASE_URL=postgresql+psycopg://woodcroft:woodcroft@localhost:5432/woodcroft_migrate
+          python -m alembic upgrade head
+          python -m alembic check
+
+  frontend:
+    name: Frontend (type-check, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+  guards:
+    name: Guards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: No hardcoded storefront URLs in backend runtime code
+        # After the PUBLIC_URL refactor, the dev storefront origin may appear only
+        # in config.py (the default) and under app/seed/ (dev-only fixtures).
+        # Anywhere else it is a runtime path that should use settings.PUBLIC_URL.
+        # Matches both localhost and 127.0.0.1 on the storefront port.
+        run: |
+          if grep -rnE "(localhost|127\.0\.0\.1):5173" backend/app --include='*.py' \
+               | grep -v "/seed/" | grep -v "core/config.py"; then
+            echo "::error::Hardcoded storefront URL in backend runtime code; use settings.PUBLIC_URL."
+            exit 1
+          fi
+          echo "OK: no stray storefront URLs in backend runtime code."
