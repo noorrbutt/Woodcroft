@@ -23,7 +23,7 @@ from app.core.deps import DbSession, require_permission
 from app.core.errors import NotFoundError, ValidationError
 from app.core.money import format_pkr, paisa_to_rupees
 from app.core.permissions import Permission
-from app.models.catalog import Product, ProductImage, ProductVariant
+from app.models.catalog import Category, Product, ProductImage, ProductVariant
 from app.models.content import SupportTicket
 from app.models.enums import (
     MovementReason,
@@ -33,6 +33,7 @@ from app.models.enums import (
     ReturnStatus,
     ReviewStatus,
     ShipmentStatus,
+    WoodSpecies,
 )
 from app.models.identity import User
 from app.models.inventory import StockLevel, StockMovement
@@ -561,6 +562,84 @@ def list_products(
     if low_stock:
         items = [row for row in items if row.stock <= 5]
     return Page.of(items, total, page, per_page)
+
+
+class ProductCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=200)
+    category_id: uuid.UUID
+    base_price_paisa: int = Field(gt=0)
+    sku: str = Field(min_length=2, max_length=64)
+    initial_stock: int = Field(0, ge=0)
+    wood_species: WoodSpecies | None = None
+    subtitle: str | None = Field(None, max_length=300)
+    description: str = ""
+    status: ProductStatus = ProductStatus.DRAFT
+
+
+def _product_slug(db, name: str) -> str:
+    import re
+
+    base = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "product"
+    slug = base
+    n = 2
+    while db.scalar(select(Product.id).where(Product.slug == slug)):
+        slug = f"{base}-{n}"
+        n += 1
+    return slug
+
+
+@router.post("/products", response_model=dict, status_code=status.HTTP_201_CREATED)
+def create_product(
+    payload: ProductCreate,
+    db: DbSession,
+    actor: Annotated[User, Depends(require_permission(Permission.PRODUCT_EDIT))],
+) -> dict:
+    """Create a product with one default variant, stock and a placeholder image.
+
+    The admin then adds real photos and any extra variants. Keeps the minimum
+    needed for a sellable listing in one step."""
+    category = db.get(Category, payload.category_id)
+    if category is None:
+        raise ValidationError("Choose a valid category.")
+    if db.scalar(select(ProductVariant.id).where(ProductVariant.sku == payload.sku)):
+        raise ValidationError("That SKU is already in use.")
+
+    product = Product(
+        category_id=payload.category_id,
+        name=payload.name.strip(),
+        slug=_product_slug(db, payload.name),
+        subtitle=payload.subtitle,
+        description=payload.description or "",
+        base_price_paisa=payload.base_price_paisa,
+        wood_species=payload.wood_species,
+        status=payload.status,
+        published_at=datetime.now(UTC) if payload.status is ProductStatus.ACTIVE else None,
+    )
+    db.add(product)
+    db.flush()
+
+    variant = ProductVariant(product_id=product.id, sku=payload.sku.strip())
+    db.add(variant)
+    db.flush()
+    db.add(StockLevel(variant_id=variant.id, on_hand=payload.initial_stock))
+
+    # A placeholder image so the listing is never blank; the admin replaces it.
+    from app.services.media.photos import write_placeholder
+
+    meta = write_placeholder(
+        settings.media_path,
+        f"products/{product.slug}/0",
+        payload.wood_species or WoodSpecies.SHEESHAM,
+        product.name,
+    )
+    db.add(ProductImage(
+        product_id=product.id, alt_text=product.name,
+        sort_order=0, is_primary=True, **meta,
+    ))
+
+    audit(db, actor, action="product.create", entity_type="product",
+          entity_id=product.id, summary=f"Created {product.name}")
+    return {"id": str(product.id), "slug": product.slug, "message": "Product created."}
 
 
 class ProductUpdate(BaseModel):

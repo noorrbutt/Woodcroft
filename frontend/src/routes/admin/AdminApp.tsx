@@ -546,15 +546,32 @@ function Orders() {
 }
 
 /* ── Products ────────────────────────────────────────────────────────────── */
+const WOOD_SPECIES = [
+  'sheesham', 'walnut', 'teak', 'mango', 'acacia', 'deodar', 'oak', 'pine',
+]
+
+const EMPTY_PRODUCT = {
+  name: '', category_id: '', base_price_pkr: '', sku: '',
+  initial_stock: '0', wood_species: '', status: 'draft',
+}
+
 function Products() {
   const [q, setQ] = useState('')
   const [page, setPage] = useState(1)
   const [imagesFor, setImagesFor] = useState<any>(null)
+  const [creating, setCreating] = useState(false)
+  const [form, setForm] = useState({ ...EMPTY_PRODUCT })
   const queryClient = useQueryClient()
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-products', q, page],
     queryFn: () => get<any>('/admin/products', { q, page, per_page: 25 }),
+  })
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => get<any[]>('/categories'),
+    staleTime: 10 * 60_000,
   })
 
   const toggleFeatured = useMutation({
@@ -566,9 +583,40 @@ function Products() {
     },
   })
 
+  const create = useMutation({
+    mutationFn: () =>
+      post<{ message: string }>('/admin/products', {
+        name: form.name,
+        category_id: form.category_id,
+        base_price_paisa: Math.round(Number(form.base_price_pkr) * 100),
+        sku: form.sku,
+        initial_stock: Number(form.initial_stock) || 0,
+        wood_species: form.wood_species || null,
+        status: form.status,
+      }),
+    onSuccess: (r) => {
+      toast.success(r.message)
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] })
+      setCreating(false)
+      setForm({ ...EMPTY_PRODUCT })
+    },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Could not create product'),
+  })
+
+  const canCreate =
+    form.name.trim().length >= 2 &&
+    form.category_id &&
+    Number(form.base_price_pkr) > 0 &&
+    form.sku.trim().length >= 2
+
   return (
     <>
-      <PageHeading title="Products" />
+      <PageHeading
+        title="Products"
+        action={
+          <Button size="sm" onClick={() => setCreating(true)}>New product</Button>
+        }
+      />
 
       <div className="mb-4 relative max-w-md">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
@@ -632,6 +680,77 @@ function Products() {
       {imagesFor && (
         <ProductImagesModal product={imagesFor} onClose={() => setImagesFor(null)} />
       )}
+
+      <Modal
+        open={creating}
+        onClose={() => setCreating(false)}
+        title="New product"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setCreating(false)}>Cancel</Button>
+            <Button
+              form="new-product-form"
+              type="submit"
+              loading={create.isPending}
+              disabled={!canCreate}
+            >
+              Create
+            </Button>
+          </div>
+        }
+      >
+        <form
+          id="new-product-form"
+          className="grid gap-4 sm:grid-cols-2"
+          onSubmit={(e) => { e.preventDefault(); if (canCreate) create.mutate() }}
+        >
+          <Field label="Name" id="np-name" required>
+            <Input id="np-name" required value={form.name}
+                   onChange={(e) => setForm((c) => ({ ...c, name: e.target.value }))} />
+          </Field>
+          <Field label="Category" id="np-cat" required>
+            <Select id="np-cat" value={form.category_id}
+                    onChange={(e) => setForm((c) => ({ ...c, category_id: e.target.value }))}>
+              <option value="">Choose…</option>
+              {categories.map((c: any) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Base price (Rs)" id="np-price" required>
+            <Input id="np-price" type="number" min="1" required value={form.base_price_pkr}
+                   onChange={(e) => setForm((c) => ({ ...c, base_price_pkr: e.target.value }))} />
+          </Field>
+          <Field label="SKU" id="np-sku" required hint="Unique stock code">
+            <Input id="np-sku" required value={form.sku}
+                   onChange={(e) => setForm((c) => ({ ...c, sku: e.target.value }))} />
+          </Field>
+          <Field label="Initial stock" id="np-stock">
+            <Input id="np-stock" type="number" min="0" value={form.initial_stock}
+                   onChange={(e) => setForm((c) => ({ ...c, initial_stock: e.target.value }))} />
+          </Field>
+          <Field label="Wood" id="np-wood">
+            <Select id="np-wood" value={form.wood_species}
+                    onChange={(e) => setForm((c) => ({ ...c, wood_species: e.target.value }))}>
+              <option value="">Not specified</option>
+              {WOOD_SPECIES.map((w) => (
+                <option key={w} value={w}>{w[0].toUpperCase() + w.slice(1)}</option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Status" id="np-status">
+            <Select id="np-status" value={form.status}
+                    onChange={(e) => setForm((c) => ({ ...c, status: e.target.value }))}>
+              <option value="draft">Draft</option>
+              <option value="active">Active (published)</option>
+            </Select>
+          </Field>
+        </form>
+        <p className="mt-3 text-xs text-faint">
+          Creates the product with one variant and a placeholder image. Add real
+          photos and more variants after saving.
+        </p>
+      </Modal>
 
       {data && data.pages > 1 && (
         <div className="mt-4 flex items-center justify-center gap-2">

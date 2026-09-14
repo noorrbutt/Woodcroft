@@ -983,13 +983,17 @@ export function AdminImport() {
   const [pendingFile, setPendingFile] = useState<File | null>(null)
 
   const run = useMutation({
-    mutationFn: async ({ file, dryRun }: { file: File; dryRun: boolean }) => {
+    mutationFn: async (
+      { file, dryRun, onExisting }:
+      { file: File; dryRun: boolean; onExisting?: string },
+    ) => {
       const body = new FormData()
       body.append('file', file)
-      return api<any>(`/admin/products/import?dry_run=${dryRun}`, {
-        method: 'POST',
-        body,
-      })
+      const oe = onExisting ?? 'set'
+      return api<any>(
+        `/admin/products/import?dry_run=${dryRun}&on_existing=${oe}`,
+        { method: 'POST', body },
+      )
     },
     onSuccess: (data) => {
       setResult(data)
@@ -1051,6 +1055,9 @@ export function AdminImport() {
         {result && (
           <div className="mt-6 space-y-4">
             <div className="flex flex-wrap gap-2">
+              {result.existing_count > 0 && (
+                <Badge tone="info">{result.existing_count} already exist</Badge>
+              )}
               <Badge tone={result.updated_count ? 'info' : 'neutral'}>
                 {result.updated_count} to change
               </Badge>
@@ -1059,6 +1066,24 @@ export function AdminImport() {
                 <Badge tone="danger">{result.error_count} problems</Badge>
               )}
             </div>
+
+            {result.dry_run && result.existing_count > 0 && (
+              <div className="border border-line bg-sunken p-3">
+                <p className="mb-2 text-xs font-medium">
+                  {result.existing_count} product(s) in this file already exist:
+                </p>
+                <ul className="max-h-32 space-y-1 overflow-y-auto text-xs">
+                  {result.existing.slice(0, 30).map((row: any, i: number) => (
+                    <li key={i}>
+                      <span className="font-mono">{row.sku}</span> — {row.product}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-3 text-xs text-muted">
+                  Choose how to handle their stock, or cancel and change nothing.
+                </p>
+              </div>
+            )}
 
             {result.errors?.length > 0 && (
               <div className="border border-[var(--wc-danger)] bg-danger-bg p-3">
@@ -1104,12 +1129,47 @@ export function AdminImport() {
             )}
 
             {result.dry_run && result.updated_count > 0 && (
-              <Button
-                loading={run.isPending}
-                onClick={() => pendingFile && run.mutate({ file: pendingFile, dryRun: false })}
-              >
-                Apply {result.updated_count} changes
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                {result.existing_count > 0 ? (
+                  <>
+                    <Button
+                      loading={run.isPending}
+                      onClick={() =>
+                        pendingFile &&
+                        run.mutate({ file: pendingFile, dryRun: false, onExisting: 'increase' })
+                      }
+                    >
+                      Increase quantities
+                    </Button>
+                    <Button
+                      variant="outline"
+                      loading={run.isPending}
+                      onClick={() =>
+                        pendingFile &&
+                        run.mutate({ file: pendingFile, dryRun: false, onExisting: 'set' })
+                      }
+                    >
+                      Set to CSV values
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => { setResult(null); setPendingFile(null) }}
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    loading={run.isPending}
+                    onClick={() =>
+                      pendingFile &&
+                      run.mutate({ file: pendingFile, dryRun: false, onExisting: 'set' })
+                    }
+                  >
+                    Apply {result.updated_count} changes
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         )}

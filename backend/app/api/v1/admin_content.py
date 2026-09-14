@@ -1044,16 +1044,27 @@ async def import_products(
     actor: Annotated[User, Depends(require_permission(Permission.PRODUCT_EDIT))],
     file: UploadFile = File(...),
     dry_run: bool = Query(True, description="Validate without writing"),
+    on_existing: str = Query(
+        "set",
+        description="For SKUs that already exist: 'increase' adds the CSV stock to "
+        "current stock, 'set' replaces it, 'cancel' writes nothing.",
+    ),
 ) -> dict[str, Any]:
     """Update existing variants from a CSV, keyed on SKU.
 
     Defaults to a dry run. A bulk price change applied to the wrong file is
     expensive and hard to undo, so you have to ask for the write explicitly.
+    The response lists which SKUs already exist so the admin can choose whether
+    to increase their quantity or cancel before anything is written.
 
     Rows are validated individually and a bad row is reported rather than
     aborting the whole file, because one typo in row 400 should not throw away
     399 good updates.
     """
+    if on_existing not in {"increase", "set", "cancel"}:
+        raise ValidationError("on_existing must be increase, set or cancel.")
+    # 'cancel' means report only; never write for existing SKUs.
+    apply = not dry_run and on_existing != "cancel"
     raw = await file.read()
     try:
         text_body = raw.decode("utf-8-sig")
@@ -1070,6 +1081,7 @@ async def import_products(
 
     updated: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
+    existing: list[dict[str, Any]] = []
     unchanged = 0
 
     for line_number, row in enumerate(reader, start=2):
@@ -1087,6 +1099,10 @@ async def import_products(
         if product is None:
             errors.append({"row": line_number, "sku": sku, "error": "Variant has no product"})
             continue
+
+        # Every valid row targets an SKU that already exists, so record it for
+        # the admin's increase-or-cancel decision.
+        existing.append({"row": line_number, "sku": sku, "product": product.name})
 
         changes: dict[str, Any] = {}
 
@@ -1111,7 +1127,7 @@ async def import_products(
                     "from": str(paisa_to_rupees(current)),
                     "to": str(paisa_to_rupees(paisa)),
                 }
-                if not dry_run:
+                if apply:
                     variant.price_paisa = paisa
 
         stock_raw = (row.get("stock") or "").strip()
@@ -1138,21 +1154,24 @@ async def import_products(
                                  f"checkouts, so stock cannot go to {quantity}",
                     })
                     continue
-                changes["stock"] = {"from": level.on_hand, "to": quantity}
-                if not dry_run:
-                    delta = quantity - level.on_hand
-                    level.on_hand = quantity
+                target = level.on_hand + quantity if on_existing == "increase" else quantity
+                changes["stock"] = {"from": level.on_hand, "to": target}
+                if apply:
+                    delta = target - level.on_hand
+                    level.on_hand = target
                     db.add(StockMovement(
-                        variant_id=variant.id, delta=delta, balance_after=quantity,
-                        reason=MovementReason.CORRECTION, actor_id=actor.id,
-                        note=f"CSV import from {file.filename}",
+                        variant_id=variant.id, delta=delta, balance_after=target,
+                        reason=(MovementReason.RESTOCK if on_existing == "increase"
+                                else MovementReason.CORRECTION),
+                        actor_id=actor.id,
+                        note=f"CSV import from {file.filename} ({on_existing})",
                     ))
 
         status_raw = (row.get("status") or "").strip().lower()
         if status_raw and status_raw in {s.value for s in ProductStatus}:
             if product.status.value != status_raw:
                 changes["status"] = {"from": product.status.value, "to": status_raw}
-                if not dry_run:
+                if apply:
                     product.status = ProductStatus(status_raw)
 
         if changes:
@@ -1161,7 +1180,7 @@ async def import_products(
         else:
             unchanged += 1
 
-    if not dry_run and updated:
+    if apply and updated:
         audit(db, actor, action="product.bulk_import", entity_type="product",
               entity_id=None,
               summary=f"Imported {file.filename}: {len(updated)} variants updated",
@@ -1169,17 +1188,21 @@ async def import_products(
 
     return {
         "dry_run": dry_run,
+        "on_existing": on_existing,
+        "applied": apply,
         "updated": updated[:200],
         "updated_count": len(updated),
+        "existing": existing[:200],
+        "existing_count": len(existing),
         "unchanged": unchanged,
         "errors": errors[:200],
         "error_count": len(errors),
         "message": (
-            f"Dry run: {len(updated)} would change, {unchanged} unchanged, "
-            f"{len(errors)} problems."
+            f"Dry run: {len(existing)} of these SKUs already exist, "
+            f"{len(updated)} would change, {len(errors)} problems."
             if dry_run
-            else f"Applied {len(updated)} updates, {unchanged} unchanged, "
-                 f"{len(errors)} skipped."
+            else f"Applied {len(updated)} updates ({on_existing}), "
+                 f"{unchanged} unchanged, {len(errors)} skipped."
         ),
     }
 
