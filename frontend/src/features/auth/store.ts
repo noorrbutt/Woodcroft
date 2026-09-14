@@ -31,13 +31,13 @@ export const useAuthStore = create<AuthState>((set) => ({
       remember_me: rememberMe,
     })
     auth.setTokens(data.tokens.access_token, data.tokens.refresh_token)
-    set({ user: data.user })
+    set({ user: data.user, loading: false })
   },
 
   register: async (input) => {
     const data = await post<AuthResponse>('/auth/register', input)
     auth.setTokens(data.tokens.access_token, data.tokens.refresh_token)
-    set({ user: data.user })
+    set({ user: data.user, loading: false })
   },
 
   logout: async () => {
@@ -48,7 +48,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       post('/auth/logout', { refresh_token: refresh }).catch(() => {})
     }
     auth.clear()
-    set({ user: null })
+    set({ user: null, loading: false })
     toast.success('Signed out')
   },
 

@@ -12,6 +12,7 @@ import './styles/base.css'
 
 import { router } from './router'
 import { bootstrapAuth } from './lib/api'
+import { useAuthStore } from './features/auth/store'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,10 +31,21 @@ const queryClient = new QueryClient({
   },
 })
 
-// Restore the session before the first paint that could depend on it, so a
-// signed-in user does not briefly see the signed-out header.
-bootstrapAuth().finally(() => {
-  createRoot(document.getElementById('root')!).render(
+/**
+ * Restore the session before the first paint that could depend on it, so a
+ * signed-in user does not briefly see the signed-out header.
+ *
+ * bootstrapAuth only exchanges the stored refresh token for an access token.
+ * It does NOT load the user, and the auth store starts with loading = true.
+ * Route guards block on that flag, so without the refreshUser call below both
+ * /account and /admin sit on a spinner forever. refreshUser always clears the
+ * flag, whether or not there was a session to restore.
+ */
+bootstrapAuth()
+  .then(() => useAuthStore.getState().refreshUser())
+  .catch(() => useAuthStore.getState().setUser(null))
+  .finally(() => {
+    createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />

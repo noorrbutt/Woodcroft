@@ -57,6 +57,7 @@ import {
   Skeleton,
   Textarea,
 } from '@/components/ui'
+import { useChartColors } from '@/hooks/useChartColors'
 import { useAuthStore } from '@/features/auth/store'
 import { Wordmark } from '@/components/Layout'
 import {
@@ -234,6 +235,7 @@ function DataTable<T>({
 /* ── Dashboard ───────────────────────────────────────────────────────────── */
 function Dashboard() {
   const [days, setDays] = useState(30)
+  const colors = useChartColors()
   const { data, isLoading } = useQuery({
     queryKey: ['admin-dashboard', days],
     queryFn: () => get<any>('/admin/dashboard', { days }),
@@ -294,27 +296,30 @@ function Dashboard() {
             <AreaChart data={data.series} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
               <defs>
                 <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--wc-chart-1)" stopOpacity={0.32} />
-                  <stop offset="100%" stopColor="var(--wc-chart-1)" stopOpacity={0.02} />
+                  <stop offset="0%" stopColor={colors.series[0]} stopOpacity={0.32} />
+                  <stop offset="100%" stopColor={colors.series[0]} stopOpacity={0.02} />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="var(--wc-border-subtle)" vertical={false} />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--wc-text-tertiary)' }}
+              <CartesianGrid stroke={colors.grid} vertical={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: colors.axis }}
                      tickLine={false} axisLine={false}
                      tickFormatter={(v) => String(v).slice(5)} minTickGap={24} />
-              <YAxis tick={{ fontSize: 10, fill: 'var(--wc-text-tertiary)' }}
+              <YAxis tick={{ fontSize: 10, fill: colors.axis }}
                      tickLine={false} axisLine={false}
                      tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
               <Tooltip
                 contentStyle={{
-                  background: 'var(--wc-surface-raised)',
-                  border: '1px solid var(--wc-border-subtle)',
-                  borderRadius: 2, fontSize: 12,
+                  background: colors.surface,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 2, fontSize: 12, color: colors.text,
                 }}
                 formatter={(value) => [`Rs ${Number(value).toLocaleString()}`, 'Revenue']}
               />
-              <Area type="monotone" dataKey="revenue_rupees" stroke="var(--wc-chart-1)"
-                    strokeWidth={2} fill="url(#rev)" />
+              {/* Animation off. It is rAF driven, so it never completes in a
+                  headless render and the series paints as nothing at all. It
+                  is also just noise on a dashboard somebody reloads all day. */}
+              <Area type="monotone" dataKey="revenue_rupees" stroke={colors.series[0]}
+                    strokeWidth={2} fill="url(#rev)" isAnimationActive={false} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
