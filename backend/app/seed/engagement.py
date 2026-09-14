@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
@@ -89,9 +90,18 @@ ANSWERS = [
 ]
 
 
+# Fabricated reviews, Q&A and testimonials are demo-only social proof. They are a
+# false-advertising risk in production, so they seed ONLY when explicitly asked
+# for a demo (WOODCROFT_SEED_DEMO=1). A production seed ships with none.
+_SEED_DEMO = os.environ.get("WOODCROFT_SEED_DEMO", "").strip().lower() in {
+    "1", "true", "yes", "on",
+}
+
+
 def seed_engagement(s) -> None:
-    _reviews(s)
-    _questions(s)
+    if _SEED_DEMO:
+        _reviews(s)
+        _questions(s)
     _content(s)
     _carts_and_wishlists(s)
     _support(s)
@@ -279,33 +289,38 @@ def _content(s) -> None:
             slug=slug,
         )
 
+    from app.seed.legal_pages import LEGAL_PAGES
+
     pages = [
         ("About Woodcroft", "about", False),
         ("Terms of Service", "terms", True),
         ("Privacy Policy", "privacy", True),
+        ("Cookie & Storage Notice", "cookies", True),
         ("Shipping Policy", "shipping", True),
-        ("Return Policy", "returns", True),
+        ("Return & Refund Policy", "returns", True),
         ("Sustainability", "sustainability", False),
-        ("Accessibility", "accessibility", True),
+        ("Accessibility Statement", "accessibility", True),
     ]
     for order, (title, slug, is_system) in enumerate(pages):
+        # Real (lawyer-review) content where we have it, else a placeholder body.
+        page_title, body_html = LEGAL_PAGES.get(
+            slug,
+            (
+                title,
+                f"<h1>{title}</h1><p>Write to hello@woodcroft.pk and a person "
+                "will reply.</p>",
+            ),
+        )
         s.get_or_create(
             StaticPage,
             {
-                "title": title,
-                "body_html": (
-                    f"<h1>{title}</h1>"
-                    "<p>Woodcroft is a small workshop in Karachi making solid "
-                    "timber furniture for people who intend to keep it. We have "
-                    "been cutting joints the same way since 2002.</p>"
-                    "<p>If anything here is unclear, write to "
-                    "hello@woodcroft.pk and a person will reply.</p>"
-                ),
+                "title": page_title,
+                "body_html": body_html,
                 "is_published": True,
                 "show_in_footer": True,
                 "sort_order": order,
                 "is_system": is_system,
-                "meta_title": f"{title} | Woodcroft",
+                "meta_title": f"{page_title} | Woodcroft",
             },
             slug=slug,
         )
@@ -329,6 +344,7 @@ def _content(s) -> None:
             title=title, placement=placement,
         )
 
+    # Fabricated testimonials / press quotes are demo-only (false-advertising risk).
     quotes = [
         ("The dining table has become the centre of our house. Four years on it "
          "still looks like the day it arrived.", "Fatima Sheikh", "Lahore", False, None),
@@ -340,6 +356,8 @@ def _content(s) -> None:
          "everything.", "Hira Malik", "Islamabad", False, None),
     ]
     for order, (quote, author, city, is_press, publication) in enumerate(quotes):
+        if not _SEED_DEMO:
+            break
         s.get_or_create(
             Testimonial,
             {

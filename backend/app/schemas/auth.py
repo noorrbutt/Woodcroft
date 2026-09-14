@@ -31,6 +31,7 @@ class RegisterRequest(PasswordField):
     full_name: str = Field(min_length=2, max_length=120)
     phone: str | None = Field(None, max_length=20)
     referral_code: str | None = Field(None, max_length=16)
+    email_marketing: bool = False  # explicit opt-in for marketing email
 
 
 class LoginRequest(BaseModel):

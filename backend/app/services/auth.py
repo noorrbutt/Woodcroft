@@ -99,6 +99,7 @@ def register_user(
     full_name: str,
     phone: str | None = None,
     referred_by_code: str | None = None,
+    email_marketing: bool = False,
 ) -> tuple[User, str]:
     """Create an account. Returns the user and the raw verification token."""
     existing = db.scalar(select(User).where(User.email == email))
@@ -126,7 +127,8 @@ def register_user(
     # Every customer gets a loyalty account and default notification settings
     # up front, so nothing downstream has to handle their absence.
     db.add(LoyaltyAccount(user_id=user.id))
-    db.add(NotificationPreference(user_id=user.id))
+    # Marketing is opt-in; transactional/order updates keep their defaults.
+    db.add(NotificationPreference(user_id=user.id, email_marketing=email_marketing))
 
     raw_token = issue_email_verification(db, user)
     db.flush()

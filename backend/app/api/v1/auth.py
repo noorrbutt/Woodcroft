@@ -63,6 +63,7 @@ def register(request: Request, payload: RegisterRequest, db: DbSession) -> AuthR
         full_name=payload.full_name,
         phone=payload.phone,
         referred_by_code=payload.referral_code,
+        email_marketing=payload.email_marketing,
     )
 
     notifications.email(

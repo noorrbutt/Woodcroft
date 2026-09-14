@@ -114,7 +114,7 @@ class PlaceOrderIn(QuoteIn):
     email: EmailStr | None = None
     customer_note: str | None = Field(None, max_length=500)
     gift_message: str | None = Field(None, max_length=500)
-    accept_terms: bool = True
+    accept_terms: bool = False  # acceptance must be sent affirmatively by the client
 
 
 # ── Response schemas ─────────────────────────────────────────────────────────

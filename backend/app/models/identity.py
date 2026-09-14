@@ -333,8 +333,9 @@ class NotificationPreference(BaseModel):
     email_order_updates: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("true")
     )
+    # Marketing is opt-in (PECA / anti-spam): off unless the customer chooses it.
     email_marketing: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, server_default=text("true")
+        Boolean, nullable=False, server_default=text("false")
     )
     email_back_in_stock: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("true")
