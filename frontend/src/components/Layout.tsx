@@ -29,6 +29,7 @@ import { useTheme, type Theme } from '@/hooks/useTheme'
 import { useAuthStore } from '@/features/auth/store'
 import { useCartStore } from '@/features/cart/store'
 import { CartDrawer } from '@/features/cart/CartDrawer'
+import { SupportWidget } from '@/features/support/SupportWidget'
 import type { Category, SearchSuggestion } from '@/lib/types'
 
 export function Wordmark({ className }: { className?: string }) {
@@ -467,6 +468,7 @@ export function Layout() {
         <Outlet />
       </main>
       <Footer />
+      <SupportWidget />
     </div>
   )
 }

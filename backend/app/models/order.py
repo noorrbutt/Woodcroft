@@ -40,6 +40,7 @@ from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import BaseModel
+from app.models.identity import User
 from app.models.enums import (
     Courier,
     OrderStatus,
@@ -145,6 +146,11 @@ class Order(BaseModel):
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cancellation_reason: Mapped[str | None] = mapped_column(Text)
 
+    #: The account that placed this order, when it was not a guest checkout.
+    #: Read-only from the order's side: an order never edits a customer.
+    user: Mapped["User | None"] = relationship(
+        "User", lazy="joined", viewonly=True
+    )
     items: Mapped[list[OrderItem]] = relationship(
         back_populates="order", cascade="all, delete-orphan", lazy="selectin"
     )

@@ -95,6 +95,7 @@ def seed_engagement(s) -> None:
     _content(s)
     _carts_and_wishlists(s)
     _support(s)
+    _outbox(s)
     _misc(s)
     s.db.flush()
 
@@ -577,3 +578,113 @@ def _misc(s) -> None:
             ))
 
     s.log("search history, zero-result queries and audit log entries")
+
+
+def _outbox(s) -> None:
+    """Replay the notifications those seeded orders would have produced.
+
+    Without this the Admin > Notifications screen is empty on a fresh install,
+    which is exactly the screen that demonstrates the outbox exists at all.
+    Messages are rendered through the real templates, so what you read here is
+    byte for byte what a customer would have received.
+    """
+    from app.models.enums import OrderStatus
+    from app.services import notifications
+
+    orders = s.db.scalars(
+        select(Order).order_by(Order.placed_at.desc()).limit(60)
+    ).all()
+
+    made = 0
+    for order in orders:
+        user = s.db.get(type(s.users[0]), order.user_id) if order.user_id else None
+        recipient = user.email if user else order.guest_email
+        if not recipient:
+            continue
+
+        notifications.email(
+            s.db, "order_confirmation", recipient, user=user, order_id=order.id,
+            recipient_name=order.shipping_name,
+            context={
+                "order_number": order.order_number,
+                "order_url": f"http://localhost:5173/order/{order.order_number}",
+                "items": [
+                    {
+                        "name": item.product_name,
+                        "variant": item.variant_name,
+                        "quantity": item.quantity,
+                        "total_paisa": item.line_total_paisa,
+                    }
+                    for item in order.items
+                ],
+                "subtotal_paisa": order.subtotal_paisa,
+                "discount_paisa": order.discount_paisa,
+                "shipping_paisa": order.shipping_paisa,
+                "cod_surcharge_paisa": order.cod_surcharge_paisa,
+                "tax_paisa": order.tax_paisa,
+                "total_paisa": order.total_paisa,
+                "payment_method": "cod",
+            },
+        )
+        made += 1
+
+        if order.status in (OrderStatus.SHIPPED, OrderStatus.OUT_FOR_DELIVERY,
+                            OrderStatus.DELIVERED):
+            shipment = order.shipments[0] if order.shipments else None
+            notifications.email(
+                s.db, "order_shipped", recipient, user=user, order_id=order.id,
+                recipient_name=order.shipping_name,
+                context={
+                    "order_number": order.order_number,
+                    "order_url": f"http://localhost:5173/account/orders/{order.order_number}",
+                    "courier": order.courier.label if order.courier else "TCS",
+                    "tracking_number": shipment.tracking_number if shipment else None,
+                },
+            )
+            notifications.sms(
+                s.db, "order_shipped", order.shipping_phone, user=user,
+                order_id=order.id,
+                context={
+                    "order_number": order.order_number,
+                    "courier": order.courier.label if order.courier else "TCS",
+                    "tracking_number": shipment.tracking_number if shipment else None,
+                },
+            )
+            made += 2
+
+        if order.status is OrderStatus.DELIVERED:
+            notifications.email(
+                s.db, "order_delivered", recipient, user=user, order_id=order.id,
+                recipient_name=order.shipping_name,
+                context={
+                    "order_number": order.order_number,
+                    "order_url": f"http://localhost:5173/account/orders/{order.order_number}",
+                },
+            )
+            made += 1
+
+        if order.status is OrderStatus.CANCELLED:
+            notifications.email(
+                s.db, "order_cancelled", recipient, user=user, order_id=order.id,
+                recipient_name=order.shipping_name,
+                context={
+                    "order_number": order.order_number,
+                    "reason": order.cancellation_reason,
+                },
+            )
+            made += 1
+
+    # A couple of marketing sends, so the suppression path is visible too.
+    for user in s.rng.sample(s.users, min(12, len(s.users))):
+        notifications.email(
+            s.db, "abandoned_cart", user.email, user=user,
+            context={
+                "cart_url": "http://localhost:5173/cart",
+                "item_count": s.rng.randint(1, 3),
+                "cart_value_paisa": s.rng.randint(500_000, 8_000_000),
+                "coupon_code": "WOOD15",
+            },
+        )
+        made += 1
+
+    s.log(f"{made} notification messages in the outbox")

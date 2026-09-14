@@ -25,6 +25,13 @@ import {
   AlertTriangle,
   ArrowLeft,
   Boxes,
+  FileText,
+  Gift,
+  LifeBuoy,
+  Newspaper,
+  Ticket,
+  Undo2,
+  Upload,
   ClipboardList,
   LayoutDashboard,
   Mail,
@@ -52,6 +59,15 @@ import {
 } from '@/components/ui'
 import { useAuthStore } from '@/features/auth/store'
 import { Wordmark } from '@/components/Layout'
+import {
+  AdminBlog,
+  AdminCoupons,
+  AdminGiftCards,
+  AdminImport,
+  AdminPages,
+  AdminReturns,
+  AdminTickets,
+} from './content'
 import type { ApiMessage } from '@/lib/types'
 
 const NAV = [
@@ -60,7 +76,14 @@ const NAV = [
   { to: '/admin/products', label: 'Products', icon: Package },
   { to: '/admin/inventory', label: 'Inventory', icon: Boxes },
   { to: '/admin/customers', label: 'Customers', icon: Users },
+  { to: '/admin/returns', label: 'Returns', icon: Undo2 },
   { to: '/admin/reviews', label: 'Reviews', icon: Star },
+  { to: '/admin/tickets', label: 'Support', icon: LifeBuoy },
+  { to: '/admin/coupons', label: 'Coupons', icon: Ticket },
+  { to: '/admin/gift-cards', label: 'Gift cards', icon: Gift },
+  { to: '/admin/blog', label: 'Journal', icon: Newspaper },
+  { to: '/admin/pages', label: 'Pages', icon: FileText },
+  { to: '/admin/import', label: 'Bulk import', icon: Upload },
   { to: '/admin/notifications', label: 'Notifications', icon: Mail },
   { to: '/admin/audit', label: 'Audit log', icon: MessageSquare },
   { to: '/admin/settings', label: 'Settings', icon: SettingsIcon },
@@ -1069,7 +1092,14 @@ export default function AdminApp() {
         <Route path="products" element={<Products />} />
         <Route path="inventory" element={<Inventory />} />
         <Route path="customers" element={<Customers />} />
+        <Route path="returns" element={<AdminReturns />} />
         <Route path="reviews" element={<Reviews />} />
+        <Route path="tickets" element={<AdminTickets />} />
+        <Route path="coupons" element={<AdminCoupons />} />
+        <Route path="gift-cards" element={<AdminGiftCards />} />
+        <Route path="blog" element={<AdminBlog />} />
+        <Route path="pages" element={<AdminPages />} />
+        <Route path="import" element={<AdminImport />} />
         <Route path="notifications" element={<Notifications />} />
         <Route path="audit" element={<Audit />} />
         <Route path="settings" element={<Settings />} />

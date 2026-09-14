@@ -261,7 +261,7 @@ def list_orders(
         .order_by(Order.placed_at.desc())
         .offset((page - 1) * per_page)
         .limit(per_page)
-        .options(selectinload(Order.items), selectinload(Order.user))
+        .options(selectinload(Order.items))
     ).all()
 
     items = [
