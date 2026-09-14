@@ -19,7 +19,7 @@
 {% if cod_surcharge_paisa %}
   <tr><td style="padding:2px 0;">Cash on delivery fee</td><td align="right">{{ cod_surcharge_paisa | pkr }}</td></tr>
 {% endif %}
-  <tr><td style="padding:2px 0;color:#8A7862;font-size:13px;">Includes GST</td><td align="right" style="color:#8A7862;font-size:13px;">{{ tax_paisa | pkr }}</td></tr>
+  <tr><td style="padding:2px 0;color:#8A7862;font-size:13px;">{% if tax_mode == "exclusive" %}GST{% else %}Includes GST{% endif %}</td><td align="right" style="color:#8A7862;font-size:13px;">{{ tax_paisa | pkr }}</td></tr>
   <tr><td style="padding:12px 0;border-top:1px solid #4A3527;font-size:17px;">Total</td><td align="right" style="padding:12px 0;border-top:1px solid #4A3527;font-size:17px;">{{ total_paisa | pkr }}</td></tr>
 </table>
 {% if payment_method == "cod" %}

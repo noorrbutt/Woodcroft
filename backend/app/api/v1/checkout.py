@@ -743,6 +743,7 @@ def place_order(
                 "shipping_paisa": order.shipping_paisa,
                 "cod_surcharge_paisa": order.cod_surcharge_paisa,
                 "tax_paisa": order.tax_paisa,
+                "tax_mode": order.tax_mode.value,
                 "total_paisa": order.total_paisa,
                 "payment_method": payload.payment_method.value,
             },

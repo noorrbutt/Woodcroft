@@ -193,7 +193,9 @@ class TestDiscounts:
     def test_flash_sale_percentage(self) -> None:
         q = quote(QuoteRequest(lines=(line(10_000, flash_sale_bp=2000),)))
         assert q.lines[0].line_discount_paisa == 2_000 * RS
-        assert q.subtotal_paisa == 8_000 * RS
+        # subtotal is the pre-discount figure; the discount is shown separately.
+        assert q.subtotal_paisa == 10_000 * RS
+        assert q.discount_paisa == 2_000 * RS
 
     def test_best_line_discount_wins_and_they_do_not_stack(self) -> None:
         q = quote(
@@ -210,7 +212,7 @@ class TestDiscounts:
             )
         )
         assert q.discount_paisa == 1_000 * RS
-        assert q.subtotal_paisa == 9_000 * RS
+        assert q.subtotal_paisa == 10_000 * RS
 
     def test_coupon_cap(self) -> None:
         q = quote(
@@ -258,7 +260,8 @@ class TestDiscounts:
             )
         )
         assert q.total_paisa == 0
-        assert q.subtotal_paisa == 0
+        assert q.subtotal_paisa == 500 * RS
+        assert q.discount_paisa == 500 * RS
 
     def test_free_shipping_coupon(self) -> None:
         q = quote(
@@ -418,12 +421,61 @@ class TestDeterminism:
                 tax_rate_bp=GST,
             )
         )
-        # Lines reconstruct the subtotal.
-        assert sum(ln.subtotal_paisa for ln in q.lines) == q.subtotal_paisa
-        # Coupon shares reconstruct the coupon.
+        # The pre-discount subtotal minus the discount is the net goods, which
+        # the lines (post-discount) reconstruct.
         line_discounts = sum(ln.line_discount_paisa for ln in q.lines)
         allocated = sum(ln.allocated_discount_paisa for ln in q.lines)
         assert line_discounts + allocated == q.discount_paisa
-        # Total is subtotal plus the untaxed extras, in inclusive mode.
-        assert q.total_paisa == q.subtotal_paisa + 450 * RS + 200 * RS
+        assert q.subtotal_paisa - q.discount_paisa == sum(
+            ln.subtotal_paisa for ln in q.lines
+        )
+        # Total is the net goods plus the untaxed extras, in inclusive mode.
+        assert q.total_paisa == (
+            q.subtotal_paisa - q.discount_paisa + 450 * RS + 200 * RS
+        )
         assert q.total_paisa > 0
+
+
+class TestInvoiceBalances:
+    """subtotal - discount + shipping + cod + gift_wrap (+ tax if exclusive)
+    must equal the total, so an invoice actually adds up. This is the invariant
+    that the double-subtracted discount used to break."""
+
+    def _basket(self, tax_mode: TaxMode) -> object:
+        return quote(
+            QuoteRequest(
+                lines=(
+                    line(10_000),
+                    line(2_500, qty=2, flash_sale_bp=1000),
+                ),
+                coupon=CouponInput("WELCOME10", DiscountKind.PERCENTAGE, value_bp=1000),
+                shipping_paisa=350 * RS,
+                cod_surcharge_paisa=200 * RS,
+                gift_wrap_paisa=150 * RS,
+                tax_mode=tax_mode,
+                tax_rate_bp=GST,
+            )
+        )
+
+    def test_inclusive_invoice_adds_up(self) -> None:
+        q = self._basket(TaxMode.INCLUSIVE)
+        expected = (
+            q.subtotal_paisa
+            - q.discount_paisa
+            + q.shipping_paisa
+            + q.cod_surcharge_paisa
+            + q.gift_wrap_paisa
+        )
+        assert expected == q.total_paisa
+
+    def test_exclusive_invoice_adds_up(self) -> None:
+        q = self._basket(TaxMode.EXCLUSIVE)
+        expected = (
+            q.subtotal_paisa
+            - q.discount_paisa
+            + q.shipping_paisa
+            + q.cod_surcharge_paisa
+            + q.gift_wrap_paisa
+            + q.tax_paisa
+        )
+        assert expected == q.total_paisa

@@ -84,7 +84,9 @@ class Order(BaseModel):
     )
 
     # ── Money, all paisa, all snapshotted ────────────────────────────────────
-    #: Sum of line totals before any order-level discount.
+    #: Goods total before any discount (line-level or coupon). The coupon and
+    #: line discounts are carried in discount_paisa, so subtotal - discount +
+    #: shipping + surcharges (+ tax when exclusive) equals total_paisa exactly.
     subtotal_paisa: Mapped[int] = mapped_column(BigInteger, nullable=False)
     discount_paisa: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default=text("0"))
     shipping_paisa: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default=text("0"))

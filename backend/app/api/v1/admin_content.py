@@ -10,6 +10,7 @@ import csv
 import io
 import uuid
 from datetime import UTC, datetime
+from decimal import InvalidOperation
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
@@ -17,10 +18,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
-from app.api.v1.admin import audit
+from app.api.v1.admin import _csv_cell, audit
 from app.core.deps import DbSession, require_permission
 from app.core.errors import NotFoundError, ValidationError
-from app.core.money import format_pkr
+from app.core.money import format_pkr, paisa_to_rupees, rupees_to_paisa
 from app.core.permissions import Permission
 from app.models.catalog import Category, Product, ProductVariant
 from app.models.content import (
@@ -990,18 +991,19 @@ def export_products(
     writer = csv.writer(buffer)
     writer.writerow(CSV_COLUMNS)
     for variant, product, category, stock in rows:
+        compare = variant.compare_at_price_paisa or product.compare_at_price_paisa or 0
         writer.writerow([
             variant.sku,
-            product.name,
+            _csv_cell(product.name),
             category.slug,
-            variant.name or "",
+            _csv_cell(variant.name or ""),
             product.wood_species.value if product.wood_species else "",
-            (variant.price_paisa or product.base_price_paisa) / 100,
-            (variant.compare_at_price_paisa or product.compare_at_price_paisa or 0) / 100 or "",
+            paisa_to_rupees(variant.price_paisa or product.base_price_paisa),
+            paisa_to_rupees(compare) if compare else "",
             stock.on_hand if stock else 0,
             product.status.value,
-            product.subtitle or "",
-            product.description or "",
+            _csv_cell(product.subtitle or ""),
+            _csv_cell(product.description or ""),
         ])
 
     return Response(
@@ -1066,8 +1068,11 @@ async def import_products(
         price_raw = (row.get("price_pkr") or "").strip()
         if price_raw:
             try:
-                paisa = int(round(float(price_raw) * 100))
-            except ValueError:
+                # Decimal-based, half-up conversion. float() drops the last
+                # paisa on values like 12.345 and rounds to even, both wrong for
+                # money; rupees_to_paisa exists precisely to avoid that.
+                paisa = rupees_to_paisa(price_raw)
+            except (InvalidOperation, ValueError):
                 errors.append({"row": line_number, "sku": sku,
                                "error": f"'{price_raw}' is not a number"})
                 continue
@@ -1077,7 +1082,10 @@ async def import_products(
                 continue
             current = variant.price_paisa or product.base_price_paisa
             if paisa != current:
-                changes["price"] = {"from": current / 100, "to": paisa / 100}
+                changes["price"] = {
+                    "from": str(paisa_to_rupees(current)),
+                    "to": str(paisa_to_rupees(paisa)),
+                }
                 if not dry_run:
                     variant.price_paisa = paisa
 

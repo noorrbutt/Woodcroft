@@ -21,7 +21,7 @@ from sqlalchemy.orm import selectinload
 from app.core.config import settings
 from app.core.deps import DbSession, StaffUser, require_permission
 from app.core.errors import NotFoundError, ValidationError
-from app.core.money import format_pkr
+from app.core.money import format_pkr, paisa_to_rupees
 from app.core.permissions import Permission
 from app.models.catalog import Category, Product, ProductVariant
 from app.models.content import SupportTicket
@@ -443,6 +443,19 @@ def refund_order(
     return Message(message=f"Refunded {format_pkr(payload.amount_paisa)}.")
 
 
+def _csv_cell(value: object) -> str:
+    """Neutralise spreadsheet formula injection in customer-supplied text.
+
+    Excel and Sheets evaluate a cell that starts with =, +, -, @, tab or CR as a
+    formula. A customer whose name is =HYPERLINK(...) would otherwise run code on
+    the workstation of any admin who opens the export.
+    """
+    text = "" if value is None else str(value)
+    if text[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + text
+    return text
+
+
 @router.get("/orders/export")
 def export_orders(
     db: DbSession,
@@ -462,17 +475,17 @@ def export_orders(
         writer.writerow([
             order.order_number,
             order.placed_at.date().isoformat(),
-            order.shipping_name,
-            order.shipping_city,
+            _csv_cell(order.shipping_name),
+            _csv_cell(order.shipping_city),
             order.shipping_province.label,
             order.status.label,
             sum(i.quantity for i in order.items),
-            order.subtotal_paisa / 100,
-            order.discount_paisa / 100,
-            order.shipping_paisa / 100,
-            order.cod_surcharge_paisa / 100,
-            order.tax_paisa / 100,
-            order.total_paisa / 100,
+            paisa_to_rupees(order.subtotal_paisa),
+            paisa_to_rupees(order.discount_paisa),
+            paisa_to_rupees(order.shipping_paisa),
+            paisa_to_rupees(order.cod_surcharge_paisa),
+            paisa_to_rupees(order.tax_paisa),
+            paisa_to_rupees(order.total_paisa),
         ])
 
     return Response(

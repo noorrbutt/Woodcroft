@@ -286,10 +286,15 @@ def quote(request: QuoteRequest) -> Quote:
             line.tax_paisa = apply_bp(line.subtotal_paisa, line.tax_rate_bp)
 
     result.lines = priced
-    result.subtotal_paisa = sum(line.subtotal_paisa for line in priced)
-    result.discount_paisa = (
-        sum(line.line_discount_paisa for line in priced) + coupon_discount
-    )
+    # net_goods is the goods total after every discount; it drives the payable.
+    # subtotal_paisa is the goods total BEFORE any discount, so an invoice reads
+    # Subtotal - Discount + Delivery = Total and actually adds up. line.subtotal
+    # has already had both the line discount and the coupon share subtracted, so
+    # add them back to recover the pre-discount figure.
+    net_goods = sum(line.subtotal_paisa for line in priced)
+    line_discount_total = sum(line.line_discount_paisa for line in priced)
+    result.discount_paisa = line_discount_total + coupon_discount
+    result.subtotal_paisa = net_goods + result.discount_paisa
 
     # ── 6 and 7: shipping, gift wrap, COD ────────────────────────────────────
     shipping = 0 if request.free_shipping else request.shipping_paisa
@@ -307,11 +312,12 @@ def quote(request: QuoteRequest) -> Quote:
 
     result.tax_paisa = sum(line.tax_paisa for line in priced) + extras_tax
 
-    # Payable before any stored value is applied.
+    # Payable before any stored value is applied. Uses net_goods, not the
+    # pre-discount subtotal, so the total stays exactly what the customer owes.
     if request.tax_mode is TaxMode.INCLUSIVE:
-        payable = result.subtotal_paisa + extras
+        payable = net_goods + extras
     else:
-        payable = result.subtotal_paisa + extras + result.tax_paisa
+        payable = net_goods + extras + result.tax_paisa
 
     # ── 5: stored value, in the order that helps the customer most ───────────
     # Gift card first, then loyalty, then store credit. Loyalty points are the
