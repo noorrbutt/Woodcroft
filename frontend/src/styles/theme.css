@@ -98,6 +98,7 @@
   --wc-warning-bg:      var(--amber-100);
   --wc-danger:          var(--clay-500);
   --wc-danger-bg:       var(--clay-100);
+  --wc-on-danger:       #FFFFFF;
   --wc-info:            var(--info-500);
   --wc-info-bg:         var(--info-100);
 
@@ -176,6 +177,7 @@
     --wc-warning-bg:      #2E2412;
     --wc-danger:          #E08C79;
     --wc-danger-bg:       #2E1A15;
+    --wc-on-danger:       #2E1A15;
     --wc-info:            #8FB6D2;
     --wc-info-bg:         #16222C;
 
@@ -230,6 +232,7 @@
   --wc-warning-bg:      #2E2412;
   --wc-danger:          #E08C79;
   --wc-danger-bg:       #2E1A15;
+  --wc-on-danger:       #2E1A15;
   --wc-info:            #8FB6D2;
   --wc-info-bg:         #16222C;
 
@@ -288,6 +291,7 @@
   --color-warning-bg: var(--wc-warning-bg);
   --color-danger: var(--wc-danger);
   --color-danger-bg: var(--wc-danger-bg);
+  --color-on-danger: var(--wc-on-danger);
   --color-info: var(--wc-info);
   --color-info-bg: var(--wc-info-bg);
 

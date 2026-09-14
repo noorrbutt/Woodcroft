@@ -55,7 +55,7 @@ export function Button({
         variant === 'brass' && 'wc-btn-brass',
         variant === 'outline' && 'wc-btn-outline',
         variant === 'ghost' && 'wc-btn-ghost',
-        variant === 'danger' && 'bg-[var(--wc-danger)] text-white hover:brightness-110',
+        variant === 'danger' && 'bg-[var(--wc-danger)] text-on-danger hover:brightness-110',
         size === 'sm' && 'wc-btn-sm',
         size === 'lg' && 'wc-btn-lg',
         fullWidth && 'w-full',

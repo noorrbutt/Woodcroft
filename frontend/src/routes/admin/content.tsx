@@ -160,11 +160,11 @@ export function AdminBlog() {
         footer={
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={close}>Cancel</Button>
-            <Button loading={save.isPending} onClick={() => save.mutate()}>Save</Button>
+            <Button type="submit" form="blog-form" loading={save.isPending}>Save</Button>
           </div>
         }
       >
-        <form className="space-y-4" onSubmit={(e: FormEvent) => { e.preventDefault(); save.mutate() }}>
+        <form id="blog-form" className="space-y-4" onSubmit={(e: FormEvent) => { e.preventDefault(); save.mutate() }}>
           <Field label="Title" id="title" required>
             <Input id="title" required value={form.title} onChange={bind('title')} />
           </Field>
@@ -290,7 +290,7 @@ export function AdminPages() {
                 <button onClick={() => open(page)}
                         className="mr-3 text-xs text-muted hover:text-ink">Edit</button>
                 {!page.is_system && (
-                  <button onClick={() => remove.mutate(page.id)}
+                  <button onClick={() => { if (window.confirm('Delete this page? This cannot be undone.')) remove.mutate(page.id) }}
                           className="text-xs text-muted hover:text-[var(--wc-danger)]">
                     Delete
                   </button>
@@ -309,11 +309,11 @@ export function AdminPages() {
         footer={
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={close}>Cancel</Button>
-            <Button loading={save.isPending} onClick={() => save.mutate()}>Save</Button>
+            <Button type="submit" form="page-form" loading={save.isPending}>Save</Button>
           </div>
         }
       >
-        <form className="space-y-4" onSubmit={(e: FormEvent) => { e.preventDefault(); save.mutate() }}>
+        <form id="page-form" className="space-y-4" onSubmit={(e: FormEvent) => { e.preventDefault(); save.mutate() }}>
           <Field label="Title" id="ptitle" required>
             <Input id="ptitle" required value={form.title} onChange={bind('title')} />
           </Field>
@@ -467,11 +467,11 @@ export function AdminCoupons() {
         footer={
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={close}>Cancel</Button>
-            <Button loading={save.isPending} onClick={() => save.mutate()}>Save</Button>
+            <Button type="submit" form="coupon-form" loading={save.isPending}>Save</Button>
           </div>
         }
       >
-        <form className="space-y-4" onSubmit={(e: FormEvent) => { e.preventDefault(); save.mutate() }}>
+        <form id="coupon-form" className="space-y-4" onSubmit={(e: FormEvent) => { e.preventDefault(); save.mutate() }}>
           <Field label="Code" id="code" required hint="Customers type this at checkout">
             <Input id="code" required className="font-mono uppercase" value={form.code}
                    disabled={Boolean(editing)}

@@ -194,14 +194,23 @@ function StatTile({
 }
 
 function DataTable<T>({
-  columns, rows, loading, empty,
+  columns, rows, loading, empty, error,
 }: {
   columns: { key: string; label: string; render: (row: T) => ReactNode; className?: string }[]
   rows: T[] | undefined
   loading?: boolean
   empty?: string
+  error?: boolean
 }) {
   if (loading) return <Skeleton className="h-64 w-full" />
+  if (error) {
+    return (
+      <EmptyState
+        title="Could not load this"
+        description="You may not have permission to view it, or the server had a problem."
+      />
+    )
+  }
   if (!rows?.length) return <EmptyState title={empty ?? 'Nothing here yet'} />
 
   return (
@@ -237,11 +246,20 @@ function DataTable<T>({
 function Dashboard() {
   const [days, setDays] = useState(30)
   const colors = useChartColors()
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['admin-dashboard', days],
     queryFn: () => get<any>('/admin/dashboard', { days }),
   })
 
+  if (isError) {
+    return (
+      <EmptyState
+        title="Could not load the dashboard"
+        description="You may not have access, or the server had a problem."
+        action={<Button variant="outline" onClick={() => refetch()}>Retry</Button>}
+      />
+    )
+  }
   if (isLoading || !data) return <Skeleton className="h-96 w-full" />
 
   return (
@@ -385,6 +403,11 @@ const ORDER_STATUSES = [
   'out_for_delivery', 'delivered', 'cancelled', 'refunded',
 ]
 
+// 'refunded' is not a manual status: a real refund goes through the refund
+// endpoint, which moves money and notifies the customer. Relabelling would do
+// neither, so it is left out of the update dropdown.
+const STATUS_UPDATE_OPTIONS = ORDER_STATUSES.filter((s) => s !== 'refunded')
+
 function Orders() {
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
@@ -392,9 +415,11 @@ function Orders() {
   const [selected, setSelected] = useState<any>(null)
   const [newStatus, setNewStatus] = useState('')
   const [tracking, setTracking] = useState('')
+  const [refundFor, setRefundFor] = useState<any>(null)
+  const [refund, setRefund] = useState({ amount_pkr: '', reason: '', method: 'store_credit' })
   const queryClient = useQueryClient()
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['admin-orders', q, status, page],
     queryFn: () => get<any>('/admin/orders', { q, status, page, per_page: 25 }),
   })
@@ -413,6 +438,23 @@ function Orders() {
     },
     onError: (error) =>
       toast.error(error instanceof ApiError ? error.message : 'Could not update'),
+  })
+
+  const processRefund = useMutation({
+    mutationFn: () =>
+      post<ApiMessage>(`/admin/orders/${refundFor.id}/refund`, {
+        amount_paisa: Math.round(Number(refund.amount_pkr) * 100),
+        reason: refund.reason,
+        method: refund.method,
+      }),
+    onSuccess: (result) => {
+      toast.success(result.message)
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] })
+      setRefundFor(null)
+      setRefund({ amount_pkr: '', reason: '', method: 'store_credit' })
+    },
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : 'Could not refund'),
   })
 
   return (
@@ -447,6 +489,7 @@ function Orders() {
       </div>
 
       <DataTable
+        error={isError}
         loading={isLoading}
         rows={data?.items}
         empty="No orders match"
@@ -487,12 +530,25 @@ function Orders() {
             ) },
           { key: 'actions', label: '', className: 'text-right',
             render: (row: any) => (
-              <button
-                onClick={() => { setSelected(row); setNewStatus(row.status) }}
-                className="text-xs text-muted hover:text-ink"
-              >
-                Update
-              </button>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => { setSelected(row); setNewStatus(row.status) }}
+                  className="text-xs text-muted hover:text-ink"
+                >
+                  Update
+                </button>
+                {row.status !== 'cancelled' && (
+                  <button
+                    onClick={() => {
+                      setRefundFor(row)
+                      setRefund({ amount_pkr: '', reason: '', method: 'store_credit' })
+                    }}
+                    className="text-xs text-muted hover:text-[var(--wc-danger)]"
+                  >
+                    Refund
+                  </button>
+                )}
+              </div>
             ) },
         ]}
       />
@@ -523,7 +579,7 @@ function Orders() {
         <div className="space-y-4">
           <Field label="Status" id="status">
             <Select id="status" value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
-              {ORDER_STATUSES.map((s) => (
+              {STATUS_UPDATE_OPTIONS.map((s) => (
                 <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
               ))}
             </Select>
@@ -539,6 +595,49 @@ function Orders() {
               Cancelling returns the stock and records why in the inventory ledger.
             </p>
           )}
+        </div>
+      </Modal>
+
+      <Modal
+        open={refundFor !== null}
+        onClose={() => setRefundFor(null)}
+        title={`Refund ${refundFor?.order_number ?? ''}`}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setRefundFor(null)}>Cancel</Button>
+            <Button
+              variant="danger"
+              loading={processRefund.isPending}
+              disabled={Number(refund.amount_pkr) <= 0 || refund.reason.trim().length < 3}
+              onClick={() => processRefund.mutate()}
+            >
+              Refund
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-muted">
+            Order total {refundFor?.total?.display}. This records a refund, credits
+            the amount as store credit and emails the customer. COD cash is
+            returned to the customer out of band.
+          </p>
+          <Field label="Amount (Rs)" id="refund-amount" required>
+            <Input id="refund-amount" type="number" min="1" value={refund.amount_pkr}
+                   onChange={(e) => setRefund((c) => ({ ...c, amount_pkr: e.target.value }))} />
+          </Field>
+          <Field label="Reason" id="refund-reason" required>
+            <Input id="refund-reason" value={refund.reason}
+                   onChange={(e) => setRefund((c) => ({ ...c, reason: e.target.value }))} />
+          </Field>
+          <Field label="Method" id="refund-method">
+            <Select id="refund-method" value={refund.method}
+                    onChange={(e) => setRefund((c) => ({ ...c, method: e.target.value }))}>
+              <option value="store_credit">Store credit</option>
+              <option value="cash">Cash (COD, out of band)</option>
+              <option value="bank_transfer">Bank transfer</option>
+            </Select>
+          </Field>
         </div>
       </Modal>
     </>
@@ -563,7 +662,7 @@ function Products() {
   const [form, setForm] = useState({ ...EMPTY_PRODUCT })
   const queryClient = useQueryClient()
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['admin-products', q, page],
     queryFn: () => get<any>('/admin/products', { q, page, per_page: 25 }),
   })
@@ -580,6 +679,10 @@ function Products() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] })
       toast.success('Product updated')
+    },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] })
+      toast.error('Could not update the product')
     },
   })
 
@@ -626,6 +729,7 @@ function Products() {
       </div>
 
       <DataTable
+        error={isError}
         loading={isLoading}
         rows={data?.items}
         columns={[
@@ -852,7 +956,7 @@ function ProductImagesModal({ product, onClose }: { product: any; onClose: () =>
       ) : images.length === 0 ? (
         <p className="text-sm text-faint">No images yet.</p>
       ) : (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {images.map((image) => (
             <div key={image.id} className="border border-line p-2">
               <img
@@ -896,7 +1000,7 @@ function Inventory() {
   const [note, setNote] = useState('')
   const queryClient = useQueryClient()
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['admin-inventory', lowOnly],
     queryFn: () => get<any>('/admin/inventory', { low_only: lowOnly, per_page: 100 }),
   })
@@ -933,6 +1037,7 @@ function Inventory() {
       />
 
       <DataTable
+        error={isError}
         loading={isLoading}
         rows={data?.items}
         columns={[
@@ -1011,7 +1116,7 @@ function Inventory() {
 /* ── Customers ───────────────────────────────────────────────────────────── */
 function Customers() {
   const [q, setQ] = useState('')
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['admin-customers', q],
     queryFn: () => get<any>('/admin/customers', { q, per_page: 50 }),
   })
@@ -1026,6 +1131,7 @@ function Customers() {
       </div>
 
       <DataTable
+        error={isError}
         loading={isLoading}
         rows={data?.items}
         columns={[
@@ -1069,7 +1175,7 @@ function Reviews() {
   const [status, setStatus] = useState('pending')
   const queryClient = useQueryClient()
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['admin-reviews', status],
     queryFn: () => get<any>('/admin/reviews', { status, per_page: 50 }),
   })
@@ -1081,6 +1187,7 @@ function Reviews() {
       toast.success(result.message)
       queryClient.invalidateQueries({ queryKey: ['admin-reviews'] })
     },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Could not moderate'),
   })
 
   return (
@@ -1099,6 +1206,8 @@ function Reviews() {
 
       {isLoading ? (
         <Skeleton className="h-64 w-full" />
+      ) : isError ? (
+        <EmptyState title="Could not load reviews" description="Please try again." />
       ) : !data?.items.length ? (
         <EmptyState title="Nothing to moderate" description="The queue is clear." />
       ) : (
@@ -1145,7 +1254,7 @@ function Reviews() {
 function Notifications() {
   const [reading, setReading] = useState<string | null>(null)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['admin-notifications'],
     queryFn: () => get<any>('/admin/notifications', { per_page: 50 }),
   })
@@ -1165,6 +1274,7 @@ function Notifications() {
       </p>
 
       <DataTable
+        error={isError}
         loading={isLoading}
         rows={data?.items}
         columns={[
@@ -1231,7 +1341,7 @@ function Notifications() {
 
 /* ── Audit ───────────────────────────────────────────────────────────────── */
 function Audit() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['admin-audit'],
     queryFn: () => get<any[]>('/admin/audit', { limit: 100 }),
   })
@@ -1243,6 +1353,7 @@ function Audit() {
         Every change an administrator has made, appended and never edited.
       </p>
       <DataTable
+        error={isError}
         loading={isLoading}
         rows={data}
         columns={[
@@ -1267,7 +1378,7 @@ function Audit() {
 /* ── Settings ────────────────────────────────────────────────────────────── */
 function Settings() {
   const queryClient = useQueryClient()
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['admin-settings'],
     queryFn: () => get<any[]>('/admin/settings'),
   })
@@ -1284,6 +1395,8 @@ function Settings() {
   })
 
   if (isLoading) return <Skeleton className="h-96 w-full" />
+  if (isError)
+    return <EmptyState title="Could not load settings" description="Please try again." />
 
   const groups = (data ?? []).reduce<Record<string, any[]>>((acc, setting) => {
     ;(acc[setting.group] ??= []).push(setting)
