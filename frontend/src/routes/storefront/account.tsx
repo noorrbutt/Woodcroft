@@ -28,8 +28,10 @@ import {
   Field,
   Input,
   Modal,
+  QuantityStepper,
   Select,
   Skeleton,
+  Textarea,
 } from '@/components/ui'
 import { useAuthStore } from '@/features/auth/store'
 import { ProductGrid } from '@/features/catalog/ProductCard'
@@ -365,9 +367,155 @@ interface OrderDetail {
   tracking: { courier: string; tracking_number: string | null; url: string | null }[]
 }
 
+const RETURN_REASONS = [
+  { value: 'damaged', label: 'Arrived damaged' },
+  { value: 'defective', label: 'Faulty or defective' },
+  { value: 'wrong_item', label: 'Wrong item sent' },
+  { value: 'not_as_described', label: 'Not as described' },
+  { value: 'size_issue', label: 'Size or fit issue' },
+  { value: 'changed_mind', label: 'Changed my mind' },
+  { value: 'other', label: 'Something else' },
+]
+
+interface Returnable {
+  eligible: boolean
+  reason: string | null
+  window_days: number
+  items: {
+    order_item_id: string
+    product_name: string
+    variant_name: string | null
+    returnable: number
+    line_total: string
+  }[]
+}
+
+function ReturnModal({
+  orderNumber,
+  open,
+  onClose,
+}: {
+  orderNumber: string
+  open: boolean
+  onClose: () => void
+}) {
+  const queryClient = useQueryClient()
+  const [reason, setReason] = useState('changed_mind')
+  const [note, setNote] = useState('')
+  const [picked, setPicked] = useState<Record<string, number>>({})
+
+  const { data: returnable, isLoading } = useQuery({
+    queryKey: ['returnable', orderNumber],
+    queryFn: () => get<Returnable>(`/orders/${orderNumber}/returnable`),
+    enabled: open,
+  })
+
+  const submit = useMutation({
+    mutationFn: () =>
+      post<ApiMessage>(`/orders/${orderNumber}/returns`, {
+        reason,
+        customer_note: note || undefined,
+        items: Object.entries(picked)
+          .filter(([, qty]) => qty > 0)
+          .map(([order_item_id, quantity]) => ({ order_item_id, quantity })),
+      }),
+    onSuccess: (result) => {
+      toast.success(result.message)
+      queryClient.invalidateQueries({ queryKey: ['my-returns'] })
+      onClose()
+      setPicked({})
+      setNote('')
+    },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Could not start the return'),
+  })
+
+  const anyPicked = Object.values(picked).some((q) => q > 0)
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Request a return"
+      footer={
+        returnable?.eligible ? (
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button loading={submit.isPending} disabled={!anyPicked} onClick={() => submit.mutate()}>
+              Start return
+            </Button>
+          </div>
+        ) : undefined
+      }
+    >
+      {isLoading ? (
+        <Skeleton className="h-40 w-full" />
+      ) : !returnable?.eligible ? (
+        <p className="text-sm text-muted">
+          {returnable?.reason === 'window_closed'
+            ? `The ${returnable.window_days}-day return window for this order has closed.`
+            : 'This order is not eligible for a return yet.'}
+        </p>
+      ) : (
+        <div className="space-y-5">
+          <div>
+            <p className="wc-eyebrow mb-2">Which items?</p>
+            <ul className="space-y-2">
+              {returnable.items.map((item) => (
+                <li key={item.order_item_id} className="flex items-center justify-between gap-3">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={(picked[item.order_item_id] ?? 0) > 0}
+                      onChange={(e) =>
+                        setPicked((c) => ({
+                          ...c,
+                          [item.order_item_id]: e.target.checked ? 1 : 0,
+                        }))
+                      }
+                    />
+                    <span>
+                      {item.product_name}
+                      {item.variant_name && (
+                        <span className="text-faint"> ({item.variant_name})</span>
+                      )}
+                    </span>
+                  </label>
+                  {(picked[item.order_item_id] ?? 0) > 0 && item.returnable > 1 && (
+                    <QuantityStepper
+                      value={picked[item.order_item_id] ?? 1}
+                      max={item.returnable}
+                      onChange={(q) =>
+                        setPicked((c) => ({ ...c, [item.order_item_id]: q }))
+                      }
+                    />
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <Field label="Reason" id="reason">
+            <Select id="reason" value={reason} onChange={(e) => setReason(e.target.value)}>
+              {RETURN_REASONS.map((r) => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </Select>
+          </Field>
+
+          <Field label="Anything we should know?" id="rnote">
+            <Textarea id="rnote" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+          </Field>
+        </div>
+      )}
+    </Modal>
+  )
+}
+
+
 export function AccountOrderDetail() {
   const { orderNumber } = useParams()
   const queryClient = useQueryClient()
+  const [returnOpen, setReturnOpen] = useState(false)
 
   const { data: order, isLoading } = useQuery({
     queryKey: ['order', orderNumber],
@@ -413,8 +561,19 @@ export function AccountOrderDetail() {
               Cancel order
             </Button>
           )}
+          {order.status === 'delivered' && (
+            <Button variant="outline" size="sm" onClick={() => setReturnOpen(true)}>
+              Request a return
+            </Button>
+          )}
         </div>
       </div>
+
+      <ReturnModal
+        orderNumber={order.order_number}
+        open={returnOpen}
+        onClose={() => setReturnOpen(false)}
+      />
 
       {order.tracking.length > 0 && (
         <div className="wc-panel p-5">

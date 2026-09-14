@@ -21,6 +21,7 @@ import {
   Skeleton,
 } from '@/components/ui'
 import { ProductGrid } from '@/features/catalog/ProductCard'
+import { ProductEngagement } from '@/features/catalog/ProductEngagement'
 import {
   useCartStore,
   useWishlistStore,
@@ -549,9 +550,14 @@ export function ProductPage() {
         </section>
       )}
 
+      <section className="wc-section border-t border-line">
+        <SectionHeading numeral="07" title="Reviews and questions" />
+        <ProductEngagement slug={product.slug} reviewCount={product.rating_count} />
+      </section>
+
       {related && related.length > 0 && (
         <section className="wc-section border-t border-line">
-          <SectionHeading numeral="07" title="You may also like" />
+          <SectionHeading numeral="08" title="You may also like" />
           <ProductGrid products={related.slice(0, 4)} />
         </section>
       )}
