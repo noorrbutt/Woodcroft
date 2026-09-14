@@ -18,6 +18,7 @@ from app.models.cart import AbandonedCart, Cart
 from app.models.catalog import BackInStockSubscription, PriceWatch, Product, ProductVariant
 from app.models.enums import (
     NotificationChannel,
+    NotificationStatus,
     ProductStatus,
     ReservationStatus,
 )
@@ -322,6 +323,33 @@ def expire_guest_sessions(db: Session, payload: dict[str, Any]) -> None:
         db.delete(guest)
 
 
+@handler("retry_failed_notifications")
+def retry_failed_notifications(db: Session, payload: dict[str, Any]) -> None:
+    """Re-attempt outbox messages that failed to send.
+
+    A transient SMTP or SMS-gateway outage otherwise silently drops every order
+    confirmation and password-reset sent during it, and nobody finds out unless
+    a human opens the outbox screen. Retries are capped so a permanently bad
+    address is not chased forever.
+    """
+    from app.models.ops import NotificationOutbox
+    from app.services.notifications import _attempt
+
+    cap = payload.get("max_attempts", 5)
+    rows = db.scalars(
+        select(NotificationOutbox)
+        .where(
+            NotificationOutbox.status == NotificationStatus.FAILED,
+            NotificationOutbox.attempts < cap,
+        )
+        .limit(100)
+    ).all()
+    for message in rows:
+        _attempt(message)
+    if rows:
+        log.info("retried %d failed notifications", len(rows))
+
+
 #: Jobs the scheduler re-queues on a fixed cadence, with the gap between runs.
 RECURRING: dict[str, timedelta] = {
     "sweep_expired_reservations": timedelta(minutes=2),
@@ -330,6 +358,7 @@ RECURRING: dict[str, timedelta] = {
     "activate_flash_sales": timedelta(minutes=1),
     "send_review_reminders": timedelta(hours=6),
     "notify_price_drop": timedelta(hours=3),
+    "retry_failed_notifications": timedelta(minutes=15),
     "expire_guest_sessions": timedelta(days=1),
 }
 

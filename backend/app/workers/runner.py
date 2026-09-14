@@ -103,8 +103,9 @@ CLAIM_SQL = text(
         attempts = attempts + 1
     WHERE id IN (
         SELECT id FROM job_queue
-        WHERE (status = 'pending' AND run_after <= now())
-           OR (status = 'claimed' AND claimed_at < now() - make_interval(mins => :lease))
+        WHERE attempts < max_attempts
+          AND ((status = 'pending' AND run_after <= now())
+            OR (status = 'claimed' AND claimed_at < now() - make_interval(mins => :lease)))
         ORDER BY priority ASC, run_after ASC
         FOR UPDATE SKIP LOCKED
         LIMIT :batch
@@ -164,10 +165,59 @@ def run_job(db: Session, job: JobQueue) -> None:
             log.warning("job %s (%s) failed, will retry: %s", fresh.id, fresh.job_type, exc)
 
 
+def park_dead_jobs(db: Session) -> int:
+    """Fail claimed jobs that have exhausted their attempts.
+
+    A job that keeps killing its worker (an OOM or a segfault, not a catchable
+    exception) is left 'claimed' and reclaimed forever. Once it has used all its
+    attempts, park it as failed with a note instead of letting it loop.
+    """
+    result = db.execute(
+        update(JobQueue)
+        .where(
+            JobQueue.status == JobStatus.CLAIMED,
+            JobQueue.attempts >= JobQueue.max_attempts,
+            JobQueue.claimed_at < datetime.now(UTC) - timedelta(minutes=LEASE_MINUTES),
+        )
+        .values(
+            status=JobStatus.FAILED,
+            last_error="Exhausted attempts while claimed; worker likely crashed.",
+        )
+    )
+    return result.rowcount or 0
+
+
+def bootstrap_schedule() -> None:
+    """Arm the recurring scheduler if nothing is driving it.
+
+    Nothing else ever inserts the first schedule_recurring row, so without this
+    the whole schedule (reservation sweeps, flash sales, abandoned carts, review
+    reminders) never runs. Safe on every boot: it only enqueues when no
+    schedule_recurring job is pending or claimed, so a healthy chain is left
+    alone and a dead one is re-ignited.
+    """
+    db = SessionLocal()
+    try:
+        live = db.scalar(
+            select(JobQueue.id).where(
+                JobQueue.job_type == "schedule_recurring",
+                JobQueue.status.in_([JobStatus.PENDING, JobStatus.CLAIMED]),
+            )
+        )
+        if not live:
+            enqueue(db, "schedule_recurring", dedupe_key="scheduler:boot")
+            db.commit()
+            log.info("recurring scheduler armed")
+    finally:
+        db.close()
+
+
 def tick() -> int:
     """Run one polling cycle. Returns how many jobs were processed."""
     db = SessionLocal()
     try:
+        park_dead_jobs(db)
+        db.commit()
         jobs = claim_batch(db)
         for job in jobs:
             run_job(db, job)
@@ -181,6 +231,9 @@ async def run_worker() -> None:
     """Poll forever. Cancelled by the app lifespan on shutdown."""
     # Import for the side effect of registering every handler.
     from app.workers import jobs  # noqa: F401
+
+    # Make sure the recurring schedule is running before we start polling.
+    bootstrap_schedule()
 
     log.info("worker %s polling every %ss", WORKER_ID, settings.WORKER_POLL_SECONDS)
 

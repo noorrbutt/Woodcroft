@@ -15,6 +15,10 @@ import os
 # It disables the rate limiter (otherwise its in-memory bucket bleeds across
 # tests and later logins 429) and keeps the production guard dormant.
 os.environ.setdefault("APP_ENV", "test")
+# The TestClient triggers the app lifespan, which would otherwise start the
+# background worker against the real (dev) database. Tests exercise handlers
+# directly, so keep the worker off during the suite.
+os.environ.setdefault("ENABLE_BACKGROUND_WORKER", "false")
 
 from collections.abc import Generator
 
