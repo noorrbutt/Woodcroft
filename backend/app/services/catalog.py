@@ -13,7 +13,7 @@ import uuid
 from decimal import Decimal
 from typing import Any, Literal
 
-from sqlalchemy import Select, and_, func, or_, select, text
+from sqlalchemy import Select, and_, case, func, literal, or_, select, text
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.catalog import (
@@ -37,6 +37,73 @@ SortKey = Literal[
 #: zero and nothing is ever suggested.
 DID_YOU_MEAN_THRESHOLD = 0.35
 AUTOCOMPLETE_THRESHOLD = 0.3
+
+
+def _prefix_tsquery(query: str):
+    """Build a prefix tsquery, so a partly typed word still matches.
+
+    ``websearch_to_tsquery`` matches whole lexemes, so "sheesha" finds nothing
+    at all against "Sheesham" and the shopper concludes the shop does not sell
+    it. Appending ``:*`` to each term makes every term a prefix, which is what
+    people expect search to do.
+
+    Terms are stripped to alphanumerics before being interpolated, because
+    ``to_tsquery`` parses its input as an expression and would otherwise choke
+    on, or be steered by, punctuation the customer typed.
+    """
+    terms = [
+        "".join(ch for ch in term if ch.isalnum())
+        for term in query.lower().split()
+    ]
+    terms = [t for t in terms if t]
+    if not terms:
+        return None
+    return func.to_tsquery("english", " & ".join(f"{t}:*" for t in terms))
+
+
+def _search_condition(query: str):
+    """Match the way a shopper expects a shop search to match.
+
+    Three strategies, OR'd together, because each catches what the others miss:
+
+    * prefix full-text, for partial words and for matches in the description
+    * substring on the name, which catches the middle of a word and phrases
+      like "dining tab" that span two words
+    * substring on the subtitle, for the short descriptive line
+
+    Full-text alone misses "sheesha". Substring alone misses word order, so
+    "table dining" would fail. Together they behave like every other shop.
+    """
+    like = f"%{query.lower().strip()}%"
+    clauses = [
+        func.lower(Product.name).like(like),
+        func.lower(func.coalesce(Product.subtitle, "")).like(like),
+    ]
+    tsquery = _prefix_tsquery(query)
+    if tsquery is not None:
+        clauses.append(Product.search_vector.op("@@")(tsquery))
+    return or_(*clauses)
+
+
+def _relevance(query: str):
+    """Rank so the most obviously right answer is first.
+
+    A name that starts with what was typed beats one that merely contains it,
+    which beats a match somewhere in the body copy.
+    """
+    like = f"%{query.lower().strip()}%"
+    starts = f"{query.lower().strip()}%"
+    tsquery = _prefix_tsquery(query)
+    text_rank = (
+        func.ts_rank(Product.search_vector, tsquery)
+        if tsquery is not None
+        else literal(0.0)
+    )
+    return (
+        case((func.lower(Product.name).like(starts), 3.0), else_=0.0)
+        + case((func.lower(Product.name).like(like), 2.0), else_=0.0)
+        + text_rank
+    )
 
 
 def live_products() -> Select:
@@ -106,11 +173,8 @@ def _apply_sort(stmt: Select, sort: SortKey, query: str | None) -> Select:
         )
     if sort == "bestselling":
         return stmt.order_by(Product.sales_count.desc(), Product.rating_average.desc())
-    if sort == "relevance" and query:
-        rank = func.ts_rank(
-            Product.search_vector, func.websearch_to_tsquery("english", query)
-        )
-        return stmt.order_by(rank.desc(), Product.rating_average.desc())
+    if sort == "relevance" and query and query.strip():
+        return stmt.order_by(_relevance(query).desc(), Product.rating_average.desc())
     # UUIDv7 ids sort by creation time, so this is a true "newest first"
     # without needing to touch created_at.
     return stmt.order_by(Product.id.desc())
@@ -141,12 +205,8 @@ def search_products(
         Product.deleted_at.is_(None),
     ]
 
-    if query:
-        conditions.append(
-            Product.search_vector.op("@@")(
-                func.websearch_to_tsquery("english", query)
-            )
-        )
+    if query and query.strip():
+        conditions.append(_search_condition(query))
     if category is not None:
         conditions.append(Product.category_id.in_(descendant_category_ids(db, category)))
     if wood_species:

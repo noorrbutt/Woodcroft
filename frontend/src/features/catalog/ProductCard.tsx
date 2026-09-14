@@ -113,7 +113,9 @@ export function ProductCard({
             <p className="mt-0.5 line-clamp-1 text-xs text-muted">{product.subtitle}</p>
           )}
 
-          <div className="mt-2 flex items-center justify-between gap-2">
+          {/* Wraps as a whole. Without this the price gets squeezed by the
+              rating on a narrow card and the number itself breaks in half. */}
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
             <Price value={product.price} compareAt={product.compare_at_price} size="sm" />
             {product.rating_count > 0 && (
               <Rating value={product.rating_average} count={product.rating_count} size={11} />

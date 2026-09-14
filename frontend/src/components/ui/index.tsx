@@ -182,7 +182,7 @@ export function Price({
         : compareAt.display
 
   return (
-    <span className={cn('inline-flex items-baseline gap-2', className)}>
+    <span className={cn('inline-flex items-baseline gap-2 whitespace-nowrap', className)}>
       {/* Inter with tabular numerals, not mono. Mono prices on a consumer
           storefront look like a developer console. */}
       <span
