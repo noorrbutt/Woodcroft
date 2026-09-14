@@ -37,13 +37,24 @@ export function Wordmark({ className }: { className?: string }) {
   // typeset wordmark otherwise, so nothing breaks before the asset is added.
   const [logoOk, setLogoOk] = useState(true)
   if (logoOk) {
+    // Two takes on the real wordmark: the dark walnut original for light UI, a
+    // grain-preserving light recolour for dark UI. CSS shows exactly one, keyed
+    // to the same theme signals as the colour tokens, so it never inverts wrong.
     return (
-      <img
-        src="/brand/logo.png"
-        alt="Woodcroft"
-        className={cn('h-8 w-auto', className)}
-        onError={() => setLogoOk(false)}
-      />
+      <span className={cn('inline-flex items-center', className)}>
+        <img
+          src="/brand/logo.png"
+          alt="Woodcroft"
+          className="wc-logo-light h-8 w-auto"
+          onError={() => setLogoOk(false)}
+        />
+        <img
+          src="/brand/logo-dark.png"
+          alt=""
+          aria-hidden
+          className="wc-logo-dark h-8 w-auto"
+        />
+      </span>
     )
   }
   return (
@@ -242,14 +253,17 @@ function Header() {
               <Wordmark />
             </Link>
 
-            <nav className="hidden lg:flex items-center gap-6 ml-6" aria-label="Main">
-              {primary.map((category) => (
+            <nav className="hidden lg:flex items-center gap-5 ml-4" aria-label="Main">
+              {primary.map((category, i) => (
                 <NavLink
                   key={category.id}
                   to={`/collections/${category.slug}`}
                   className={({ isActive }) =>
                     cn(
                       'text-[0.8rem] tracking-wide transition-colors',
+                      // Only the first four show below xl so the row does not
+                      // overflow and clip the cart on mid-size laptops.
+                      i >= 4 && 'hidden xl:inline',
                       isActive ? 'text-ink' : 'text-muted hover:text-ink',
                     )
                   }
@@ -268,7 +282,7 @@ function Header() {
               </NavLink>
             </nav>
 
-            <div className="ml-auto hidden md:block w-56 lg:w-72">
+            <div className="ml-auto hidden md:block min-w-0 flex-1 max-w-xs">
               <SearchBar />
             </div>
 

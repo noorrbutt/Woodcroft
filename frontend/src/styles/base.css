@@ -376,3 +376,19 @@
   from { opacity: 0; transform: translateY(8px) scale(0.985) }
   to { opacity: 1; transform: none }
 }
+
+/* ── Brand logo theme swap ───────────────────────────────────────────────────
+   The wordmark is a raster asset, so it can't recolour with tokens. We ship two
+   and show one, keyed to the SAME signals theme.css uses for colour tokens:
+   default = light, prefers-color-scheme unless data-theme forces it, and an
+   explicit data-theme wins in both directions. */
+.wc-logo-dark { display: none; }
+.wc-logo-light { display: inline-block; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .wc-logo-light { display: none; }
+  :root:not([data-theme="light"]) .wc-logo-dark { display: inline-block; }
+}
+:root[data-theme="dark"] .wc-logo-light { display: none; }
+:root[data-theme="dark"] .wc-logo-dark { display: inline-block; }
+:root[data-theme="light"] .wc-logo-light { display: inline-block; }
+:root[data-theme="light"] .wc-logo-dark { display: none; }
