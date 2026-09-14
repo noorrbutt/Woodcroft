@@ -8,6 +8,7 @@ tampered request changes what you buy, never what you pay.
 
 from __future__ import annotations
 
+import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
@@ -49,6 +50,7 @@ from app.models.order import (
     Payment,
     PaymentMethod,
 )
+from app.models.sequences import order_number_seq
 from app.models.ops import ShippingRate, ShippingZone, StoreSetting
 from app.models.promotion import Coupon, CouponRedemption
 from app.schemas.common import Message, Money, Schema
@@ -179,6 +181,8 @@ class OrderOut(Schema):
     is_cancellable: bool
     payment_method: str
     payment_status: str | None
+    #: Present only on a guest order, so the confirmation page can re-fetch it.
+    access_token: str | None = None
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -564,12 +568,18 @@ def place_order(
             )
 
     year = datetime.now(UTC).year
-    count = db.scalar(select(func.count()).select_from(Order)) or 0
-    order_number = f"WC-{year}-{count + 1:06d}"
+    # nextval is atomic: two concurrent checkouts get different numbers, so the
+    # UNIQUE constraint never rejects a valid order the way COUNT(*)+1 did.
+    seq = db.scalar(select(order_number_seq.next_value()))
+    order_number = f"WC-{year}-{seq:06d}"
+    # A guest views their order by number, so the number must not itself be the
+    # capability. Signed-in orders are gated by the owner check and get none.
+    order_access_token = secrets.token_urlsafe(32) if user is None else None
 
     shipping = payload.shipping
     order = Order(
         order_number=order_number,
+        access_token=order_access_token,
         user_id=user.id if user else None,
         guest_email=None if user else payload.email,
         guest_phone=None if user else shipping.phone,
@@ -715,7 +725,10 @@ def place_order(
             recipient_name=shipping.full_name,
             context={
                 "order_number": order_number,
-                "order_url": f"{settings.PUBLIC_URL}/order/{order_number}",
+                "order_url": (
+                    f"{settings.PUBLIC_URL}/order/{order_number}"
+                    + (f"?token={order_access_token}" if order_access_token else "")
+                ),
                 "items": [
                     {
                         "name": item.product_name,
@@ -816,6 +829,7 @@ def _order_out(order: Order) -> OrderOut:
         is_cancellable=order.is_cancellable,
         payment_method=payment.method_code.value if payment else "cod",
         payment_status=payment.status.value if payment else None,
+        access_token=order.access_token,
     )
 
 
@@ -841,13 +855,18 @@ def my_orders(
 
 
 @router.get("/orders/{order_number}", response_model=OrderOut)
-def get_order(order_number: str, db: DbSession, user: OptionalUser) -> OrderOut:
+def get_order(
+    order_number: str,
+    db: DbSession,
+    user: OptionalUser,
+    token: Annotated[str | None, Query()] = None,
+) -> OrderOut:
     """Fetch one order.
 
-    A guest can see their own order straight after checkout by its number. The
-    number is not guessable (it is sequential but scoped per year and the page
-    exposes nothing sensitive beyond what the buyer already provided), and this
-    is how every store's "order confirmation" page works for guests.
+    Deny by default. A signed-in customer sees only their own orders; staff use
+    GET /admin/orders. A guest sees their order only with the access token minted
+    at checkout, because the order number is sequential and would otherwise let
+    anyone walk the whole book and read names, phones and delivery addresses.
     """
     order = db.scalar(
         select(Order)
@@ -862,8 +881,15 @@ def get_order(order_number: str, db: DbSession, user: OptionalUser) -> OrderOut:
     if order is None:
         raise NotFoundError("We could not find that order.")
 
-    if order.user_id is not None and (user is None or user.id != order.user_id):
-        if user is None or user.role.value not in ("admin", "staff"):
+    if order.user_id is not None:
+        if user is None or user.id != order.user_id:
+            raise NotFoundError("We could not find that order.")
+    else:
+        if (
+            not order.access_token
+            or not token
+            or not secrets.compare_digest(token, order.access_token)
+        ):
             raise NotFoundError("We could not find that order.")
 
     return _order_out(order)

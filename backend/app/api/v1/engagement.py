@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
@@ -23,6 +23,7 @@ from app.models.catalog import Product, ProductAnswer, ProductQuestion
 from app.models.enums import OrderStatus, ReviewStatus
 from app.models.order import Order, OrderItem, ReturnItem, ReturnRequest
 from app.models.review import Review, ReviewVote
+from app.models.sequences import return_number_seq
 from app.schemas.common import Message, Schema
 from app.services import notifications
 
@@ -400,9 +401,9 @@ def request_return(
             )
         validated.append((item, line.quantity))
 
-    count = db.scalar(select(func.count()).select_from(ReturnRequest)) or 0
+    seq = db.scalar(select(return_number_seq.next_value()))
     request = ReturnRequest(
-        return_number=f"WC-RET-{count + 1:06d}",
+        return_number=f"WC-RET-{seq:06d}",
         order_id=order.id,
         user_id=user.id,
         reason=payload.reason,

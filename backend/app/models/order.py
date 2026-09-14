@@ -64,6 +64,11 @@ class Order(BaseModel):
     #: Human-facing reference, e.g. WC-2026-000412. Unique, never reused.
     order_number: Mapped[str] = mapped_column(String(32), nullable=False, unique=True)
 
+    #: Unguessable capability handed to a guest at checkout so they, and only
+    #: they, can view their order by its number. Signed-in orders use the owner
+    #: check instead and never expose this.
+    access_token: Mapped[str | None] = mapped_column(String(64), index=True)
+
     user_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("user.id", ondelete="SET NULL"), index=True
     )

@@ -56,6 +56,28 @@ def reset_schema() -> None:
         print(f"  note: could not stamp alembic head ({exc})")
 
 
+def _advance_number_sequences(db) -> None:
+    """Set each reference-number sequence past the highest seeded value.
+
+    Order numbers are WC-YYYY-NNNNNN and ticket numbers WC-TKT-NNNN. Real
+    checkouts and contact requests mint from these sequences, so they must start
+    above the seeded rows or the UNIQUE constraint would reject the first one.
+    """
+    db.execute(
+        text(
+            "SELECT setval('order_number_seq', COALESCE((SELECT MAX("
+            "CAST(split_part(order_number, '-', 3) AS INTEGER)) FROM \"order\"), 1))"
+        )
+    )
+    db.execute(
+        text(
+            "SELECT setval('ticket_number_seq', COALESCE((SELECT MAX("
+            "CAST(split_part(ticket_number, '-', 3) AS INTEGER)) "
+            "FROM support_ticket WHERE ticket_number ~ '^WC-TKT-[0-9]+$'), 999))"
+        )
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="app.seed")
     mode = parser.add_mutually_exclusive_group()
@@ -105,6 +127,10 @@ def main() -> int:
 
         print("Reviews and content")
         seed_engagement(seeder)
+
+        # Advance the reference-number sequences past the seeded rows so the
+        # first real order or ticket does not mint a number that already exists.
+        _advance_number_sequences(db)
 
         db.commit()
     except Exception:

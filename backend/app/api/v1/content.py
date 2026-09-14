@@ -32,6 +32,7 @@ from app.models.content import (
 from app.models.enums import PakistanProvince
 from app.models.identity import Address
 from app.models.promotion import LoyaltyAccount, LoyaltyTransaction, Referral
+from app.models.sequences import ticket_number_seq
 from app.schemas.catalog import ProductCardOut, media_url
 from app.schemas.common import Message, Money, Schema
 from app.services import notifications
@@ -278,9 +279,9 @@ def list_testimonials(db: DbSession) -> list[TestimonialOut]:
 # ── Contact and newsletter ───────────────────────────────────────────────────
 @router.post("/contact", response_model=Message, status_code=status.HTTP_201_CREATED)
 def contact(payload: ContactIn, db: DbSession, user: OptionalUser) -> Message:
-    count = db.scalar(select(func.count()).select_from(SupportTicket)) or 0
+    seq = db.scalar(select(ticket_number_seq.next_value()))
     ticket = SupportTicket(
-        ticket_number=f"WC-TKT-{count + 1000}",
+        ticket_number=f"WC-TKT-{seq + 999:06d}",
         user_id=user.id if user else None,
         contact_email=payload.email,
         contact_name=payload.name,

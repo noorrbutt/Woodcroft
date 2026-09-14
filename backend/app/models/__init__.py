@@ -5,6 +5,11 @@ autogenerate or ``create_all`` runs. Import order does not matter because
 relationships are resolved lazily by string name.
 """
 
+from app.models.sequences import (  # noqa: F401
+    order_number_seq,
+    return_number_seq,
+    ticket_number_seq,
+)
 from app.models.catalog import (  # noqa: F401
     BackInStockSubscription,
     Category,

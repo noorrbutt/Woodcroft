@@ -354,11 +354,21 @@ class TestPlaceOrder:
         assert address["province"] == "Punjab"
         assert address["line1"] == "House 12, Street 4"
 
-    def test_order_is_retrievable_by_number(self, client, variant) -> None:
-        number = self._place(client, variant).json()["order_number"]
-        response = client.get(f"/api/v1/orders/{number}")
+    def test_order_is_retrievable_by_number_with_token(self, client, variant) -> None:
+        placed = self._place(client, variant).json()
+        number = placed["order_number"]
+        token = placed["access_token"]
+        assert token  # guest orders come back with a capability token
+        response = client.get(f"/api/v1/orders/{number}?token={token}")
         assert response.status_code == 200
         assert response.json()["order_number"] == number
+
+    def test_guest_order_is_not_readable_without_the_token(
+        self, client, variant
+    ) -> None:
+        number = self._place(client, variant).json()["order_number"]
+        assert client.get(f"/api/v1/orders/{number}").status_code == 404
+        assert client.get(f"/api/v1/orders/{number}?token=wrong").status_code == 404
 
     def test_timeline_starts_with_placement(self, client, variant) -> None:
         order = self._place(client, variant).json()
