@@ -161,7 +161,7 @@ class Seeder:
             ("contact_email", "general", "Contact email", "text", "hello@woodcroft.pk"),
             ("contact_phone", "general", "Contact phone", "text", "03001234567"),
             ("store_address", "general", "Address", "text",
-             "14-C Commercial Area, Gulberg III, Lahore"),
+             "Surjani Town, Karachi"),
             ("currency", "general", "Currency", "text", "PKR"),
             ("timezone", "general", "Timezone", "text", "Asia/Karachi"),
             ("tax_mode", "tax", "Tax mode", "text", "inclusive"),
@@ -210,10 +210,10 @@ class Seeder:
             TaxClass, {"rate_bp": 0, "description": "Exempt goods"}, name="Zero-rated"
         )
 
-        # Shipping zones. Punjab is cheapest because the workshop is in Lahore.
+        # Shipping zones. Sindh is cheapest because the workshop is in Karachi.
         zones = [
-            ("Punjab & Islamabad", ["punjab", "islamabad"], 45_000, True, 20_000),
-            ("Sindh", ["sindh"], 75_000, True, 25_000),
+            ("Sindh", ["sindh"], 45_000, True, 20_000),
+            ("Punjab & Islamabad", ["punjab", "islamabad"], 75_000, True, 25_000),
             ("Khyber Pakhtunkhwa", ["khyber_pakhtunkhwa"], 85_000, True, 25_000),
             ("Balochistan & North", ["balochistan", "gilgit_baltistan",
                                      "azad_jammu_kashmir"], 120_000, False, 0),

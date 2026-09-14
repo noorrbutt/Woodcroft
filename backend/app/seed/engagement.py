@@ -241,7 +241,7 @@ def _content(s) -> None:
         ("Choosing between sheesham, teak and mango", "choosing-your-timber", "Craft",
          "Three timbers, three very different pieces of furniture. A practical "
          "guide to picking the right one for the room."),
-        ("Styling a small Lahore apartment", "small-apartment-styling", "Styling",
+        ("Styling a small Karachi apartment", "small-apartment-styling", "Styling",
          "Five pieces that make a compact flat feel considered rather than "
          "crowded."),
         ("Where our timber comes from", "our-timber-sourcing", "Sustainability",
@@ -295,9 +295,9 @@ def _content(s) -> None:
                 "title": title,
                 "body_html": (
                     f"<h1>{title}</h1>"
-                    "<p>Woodcroft is a small workshop in Lahore making solid "
+                    "<p>Woodcroft is a small workshop in Karachi making solid "
                     "timber furniture for people who intend to keep it. We have "
-                    "been cutting joints the same way since 2009.</p>"
+                    "been cutting joints the same way since 2002.</p>"
                     "<p>If anything here is unclear, write to "
                     "hello@woodcroft.pk and a person will reply.</p>"
                 ),
@@ -311,7 +311,7 @@ def _content(s) -> None:
         )
 
     banners = [
-        ("Made to be kept", "hero", "Solid timber, cut and joined by hand in Lahore.",
+        ("Made to be kept", "hero", "Solid timber, cut and joined by hand in Karachi.",
          "/shop", "Explore the collection", "dark"),
         ("The Dining Flash Sale", "strip", "25% off selected dining pieces, ends soon.",
          "/collections/dining", "Shop the sale", "dark"),
