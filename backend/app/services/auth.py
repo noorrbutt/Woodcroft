@@ -195,6 +195,11 @@ def authenticate(db: Session, *, email: str, password: str) -> User:
                 minutes=settings.ACCOUNT_LOCKOUT_MINUTES
             )
             user.failed_login_count = 0
+        # Persist the counter before raising. The error below unwinds through
+        # get_db, whose teardown rolls the request transaction back, so without
+        # this commit the failed-login count and the lockout never survive and
+        # brute-force protection is inert.
+        db.commit()
         raise InvalidCredentialsError()
 
     # Transparently upgrade the hash if the cost parameters have moved on.
@@ -260,8 +265,11 @@ def rotate_refresh_token(
 
     if stored.revoked_at is not None:
         # Replay. We cannot tell the thief from the victim, so end the whole
-        # family and make both sign in again.
+        # family and make both sign in again. Commit the revocation before
+        # raising: the error unwinds through get_db, which would otherwise roll
+        # the revocation back and leave the stolen token family live.
         revoke_session(db, stored.user_id, stored.session_id)
+        db.commit()
         raise AuthenticationError(
             "Your session was ended for security reasons. Please sign in again."
         )
