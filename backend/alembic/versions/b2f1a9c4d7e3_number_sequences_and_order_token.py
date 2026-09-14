@@ -32,20 +32,24 @@ def upgrade() -> None:
     op.create_index("ix_order_access_token", "order", ["access_token"])
 
     # Allow admin-uploaded product images alongside generated and curated ones.
-    op.drop_constraint("ck_product_image_source_is_known", "product_image", type_="check")
-    op.create_check_constraint(
-        "ck_product_image_source_is_known",
-        "product_image",
-        "source IN ('generated', 'curated', 'uploaded')",
+    # Raw SQL with the fully-qualified constraint name: op.drop_constraint would
+    # re-apply the metadata naming convention and double-prefix the name.
+    op.execute(
+        "ALTER TABLE product_image DROP CONSTRAINT ck_product_image_source_is_known"
+    )
+    op.execute(
+        "ALTER TABLE product_image ADD CONSTRAINT ck_product_image_source_is_known "
+        "CHECK (source IN ('generated', 'curated', 'uploaded'))"
     )
 
 
 def downgrade() -> None:
-    op.drop_constraint("ck_product_image_source_is_known", "product_image", type_="check")
-    op.create_check_constraint(
-        "ck_product_image_source_is_known",
-        "product_image",
-        "source IN ('generated', 'curated')",
+    op.execute(
+        "ALTER TABLE product_image DROP CONSTRAINT ck_product_image_source_is_known"
+    )
+    op.execute(
+        "ALTER TABLE product_image ADD CONSTRAINT ck_product_image_source_is_known "
+        "CHECK (source IN ('generated', 'curated'))"
     )
     op.drop_index("ix_order_access_token", table_name="order")
     op.drop_column("order", "access_token")
