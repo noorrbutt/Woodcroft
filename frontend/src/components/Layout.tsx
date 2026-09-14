@@ -234,7 +234,7 @@ function Header() {
 
       <div className="bg-forest-600 text-[var(--forest-50)] wc-no-print">
         <div className="wc-container flex h-9 items-center justify-center text-[0.7rem] tracking-[0.1em] uppercase">
-          Free delivery on orders over Rs 20,000
+          Free delivery on orders over Rs 20,000 · 10% off your first order
         </div>
       </div>
 
@@ -436,7 +436,7 @@ function Footer() {
             <ul className="space-y-2 text-sm text-muted">
               {categories.slice(0, 6).map((category) => (
                 <li key={category.id}>
-                  <Link to={`/collections/${category.slug}`} className="hover:text-ink transition-colors">
+                  <Link to={`/collections/${category.slug}`} className="wc-link !text-inherit hover:!text-ink">
                     {category.name}
                   </Link>
                 </li>
@@ -447,23 +447,23 @@ function Footer() {
           <div>
             <h3 className="wc-eyebrow mb-4">Help</h3>
             <ul className="space-y-2 text-sm text-muted">
-              <li><Link to="/faq" className="hover:text-ink transition-colors">FAQ</Link></li>
-              <li><Link to="/contact" className="hover:text-ink transition-colors">Contact us</Link></li>
-              <li><Link to="/page/shipping" className="hover:text-ink transition-colors">Shipping</Link></li>
-              <li><Link to="/page/returns" className="hover:text-ink transition-colors">Returns</Link></li>
-              <li><Link to="/account/orders" className="hover:text-ink transition-colors">Track an order</Link></li>
+              <li><Link to="/faq" className="wc-link !text-inherit hover:!text-ink">FAQ</Link></li>
+              <li><Link to="/contact" className="wc-link !text-inherit hover:!text-ink">Contact us</Link></li>
+              <li><Link to="/page/shipping" className="wc-link !text-inherit hover:!text-ink">Shipping</Link></li>
+              <li><Link to="/page/returns" className="wc-link !text-inherit hover:!text-ink">Returns</Link></li>
+              <li><Link to="/account/orders" className="wc-link !text-inherit hover:!text-ink">Track an order</Link></li>
             </ul>
           </div>
 
           <div>
             <h3 className="wc-eyebrow mb-4">Company</h3>
             <ul className="space-y-2 text-sm text-muted">
-              <li><Link to="/page/about" className="hover:text-ink transition-colors">About</Link></li>
-              <li><Link to="/journal" className="hover:text-ink transition-colors">Journal</Link></li>
-              <li><Link to="/page/sustainability" className="hover:text-ink transition-colors">Sustainability</Link></li>
-              <li><Link to="/page/terms" className="hover:text-ink transition-colors">Terms</Link></li>
-              <li><Link to="/page/privacy" className="hover:text-ink transition-colors">Privacy</Link></li>
-              <li><Link to="/page/accessibility" className="hover:text-ink transition-colors">Accessibility</Link></li>
+              <li><Link to="/page/about" className="wc-link !text-inherit hover:!text-ink">About</Link></li>
+              <li><Link to="/journal" className="wc-link !text-inherit hover:!text-ink">Journal</Link></li>
+              <li><Link to="/page/sustainability" className="wc-link !text-inherit hover:!text-ink">Sustainability</Link></li>
+              <li><Link to="/page/terms" className="wc-link !text-inherit hover:!text-ink">Terms</Link></li>
+              <li><Link to="/page/privacy" className="wc-link !text-inherit hover:!text-ink">Privacy</Link></li>
+              <li><Link to="/page/accessibility" className="wc-link !text-inherit hover:!text-ink">Accessibility</Link></li>
             </ul>
           </div>
         </div>

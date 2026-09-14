@@ -145,20 +145,46 @@ export function ProductGrid({
   products,
   loading,
   skeletonCount = 8,
+  stagger = false,
 }: {
   products?: Product[]
   loading?: boolean
   skeletonCount?: number
+  /**
+   * Sequence the cards in on reveal. Opt-in only: the stagger keyframe starts
+   * hidden and clears only under a revealing ancestor, so enabling it on a grid
+   * with no `.wc-reveal` parent (e.g. the PLP) would leave every card invisible.
+   */
+  stagger?: boolean
 }) {
+  const idx = (i: number) =>
+    stagger ? ({ '--wc-i': Math.min(i, 7) } as React.CSSProperties) : undefined
   return (
-    <div className="grid grid-cols-2 gap-x-5 gap-y-10 md:grid-cols-3 xl:grid-cols-4">
+    <div
+      className={cn(
+        'grid grid-cols-2 gap-x-5 gap-y-10 md:grid-cols-3 xl:grid-cols-4',
+        stagger && 'wc-reveal-stagger',
+      )}
+    >
       {loading
-        ? Array.from({ length: skeletonCount }, (_, index) => (
-            <ProductCardSkeleton key={index} />
-          ))
-        : products?.map((product, index) => (
-            <ProductCard key={product.id} product={product} eager={index < 4} />
-          ))}
+        ? Array.from({ length: skeletonCount }, (_, index) =>
+            stagger ? (
+              <div key={index} style={idx(index)}>
+                <ProductCardSkeleton />
+              </div>
+            ) : (
+              <ProductCardSkeleton key={index} />
+            ),
+          )
+        : products?.map((product, index) =>
+            stagger ? (
+              <div key={product.id} style={idx(index)}>
+                <ProductCard product={product} eager={index < 4} />
+              </div>
+            ) : (
+              <ProductCard key={product.id} product={product} eager={index < 4} />
+            ),
+          )}
     </div>
   )
 }

@@ -645,29 +645,43 @@ export function SectionHeading({
   title,
   description,
   action,
+  ghost = false,
 }: {
   numeral?: string
   eyebrow?: string
   title: string
   description?: string
   action?: ReactNode
+  /** Render the numeral once more, oversized and ghosted, behind the heading. */
+  ghost?: boolean
 }) {
   return (
-    <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
-      <div>
-        {numeral && (
-          <div className="mb-3 flex items-center gap-3">
-            <span className="wc-numeral">{numeral}</span>
-            <span className="h-px w-10 bg-[var(--wc-brass)]" aria-hidden />
-          </div>
-        )}
-        {eyebrow && <p className="wc-eyebrow mb-2">{eyebrow}</p>}
-        <h2>{title}</h2>
-        {description && (
-          <p className="mt-3 max-w-xl text-sm text-muted">{description}</p>
-        )}
+    <div className="relative mb-10">
+      {ghost && numeral && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -top-10 right-0 select-none font-display leading-none text-ink opacity-[0.05] text-[clamp(6rem,18vw,15rem)]"
+          style={{ fontVariationSettings: '"SOFT" 40, "WONK" 1, "opsz" 144' }}
+        >
+          {numeral}
+        </span>
+      )}
+      <div className="relative z-10 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          {numeral && (
+            <div className="mb-3 flex items-center gap-3">
+              <span className="wc-numeral">{numeral}</span>
+              <span className="h-px w-10 bg-[var(--wc-brass)]" aria-hidden />
+            </div>
+          )}
+          {eyebrow && <p className="wc-eyebrow mb-2">{eyebrow}</p>}
+          <h2>{title}</h2>
+          {description && (
+            <p className="mt-3 max-w-xl text-sm text-muted">{description}</p>
+          )}
+        </div>
+        {action}
       </div>
-      {action}
     </div>
   )
 }

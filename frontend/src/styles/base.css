@@ -28,8 +28,10 @@
     line-height: 1.65;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* Money, SKUs and quantities must not shuffle width as they change. */
-    font-variant-numeric: tabular-nums;
+    /* Tabular figures are applied only where width must not shuffle (Price,
+       Rating, quantity, pagination, cart badge) — not globally, which would
+       force the display serif's editorial numerals into mechanical monospace
+       slots. */
   }
 
   /* Fraunces carries the brand, but only where text is read for pleasure.
@@ -45,11 +47,14 @@
   }
 
   h1 {
-    font-size: clamp(2.25rem, 5.2vw, 4rem);
+    font-size: clamp(2.75rem, 6.5vw, 5.75rem);
+    line-height: 0.98;
+    letter-spacing: -0.028em;
     font-variation-settings: "SOFT" 24, "WONK" 1, "opsz" 120;
   }
   h2 {
     font-size: clamp(1.65rem, 3.2vw, 2.5rem);
+    letter-spacing: -0.02em;
     font-variation-settings: "SOFT" 32, "WONK" 0, "opsz" 72;
   }
   h3 { font-size: clamp(1.2rem, 2vw, 1.5rem); }
@@ -108,6 +113,8 @@
     font-size: 0.8125rem;
     letter-spacing: 0.22em;
     color: var(--wc-brass-text);
+    /* The editorial folio should lock up optically, not sit in monospace slots. */
+    font-variant-numeric: proportional-nums lining-nums;
   }
 
   .wc-eyebrow {
@@ -150,13 +157,21 @@
     background: var(--wc-accent);
     color: var(--wc-accent-text);
   }
-  .wc-btn-primary:hover:not(:disabled) { background: var(--wc-accent-hover); }
+  .wc-btn-primary:hover:not(:disabled) {
+    background: var(--wc-accent-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--wc-shadow-md);
+  }
 
   .wc-btn-brass {
     background: var(--wc-brass);
     color: var(--walnut-900);
   }
-  .wc-btn-brass:hover:not(:disabled) { filter: brightness(1.07); }
+  .wc-btn-brass:hover:not(:disabled) {
+    filter: brightness(1.07);
+    transform: translateY(-1px);
+    box-shadow: var(--wc-shadow-md);
+  }
 
   .wc-btn-outline {
     border: 1px solid var(--wc-border-control);
@@ -296,6 +311,27 @@
 }
 
 @layer utilities {
+  /* Staggered children inside a revealing section: each child rises a beat after
+     the last, sequenced by an inline --wc-i index, so a grid sequences in rather
+     than firing as one flat slab. The parent still carries .wc-reveal; children
+     animate only once the parent gains .is-visible. */
+  .wc-reveal-stagger > * {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity var(--wc-dur-reveal) var(--wc-ease-out),
+                transform var(--wc-dur-reveal) var(--wc-ease-out);
+    transition-delay: calc(var(--wc-i, 0) * 55ms);
+  }
+  .wc-reveal.is-visible .wc-reveal-stagger > *,
+  .is-visible.wc-reveal-stagger > * {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Hide the scrollbar on the peek-scroller rail while keeping it scrollable. */
+  .wc-no-scrollbar { scrollbar-width: none; }
+  .wc-no-scrollbar::-webkit-scrollbar { display: none; }
+
   /* Scroll reveal. The element starts hidden and an IntersectionObserver adds
      .is-visible. See the reduced-motion block below for why this needs both a
      CSS and a JS escape hatch. */
@@ -359,6 +395,13 @@
   .wc-reveal {
     opacity: 1 !important;
     transform: none !important;
+  }
+  /* Without this the staggered children start at opacity:0 and, with no
+     observed transition to run, would stay invisible forever. */
+  .wc-reveal-stagger > * {
+    opacity: 1 !important;
+    transform: none !important;
+    transition-delay: 0ms !important;
   }
   .wc-kenburns { animation: none !important; }
 }
