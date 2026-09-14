@@ -1042,6 +1042,13 @@ function Settings() {
                     {setting.description && (
                       <p className="text-xs text-faint">{setting.description}</p>
                     )}
+                    {setting.key === 'tax_mode' && (
+                      <p className="mt-1 text-xs text-[var(--wc-warning)]">
+                        Changes how every catalogue price is read. Inclusive means
+                        the shelf price already contains GST; exclusive adds 18% on
+                        top at checkout.
+                      </p>
+                    )}
                   </div>
                   <div className="w-48 shrink-0">
                     {setting.value_type === 'bool' ? (
@@ -1055,7 +1062,36 @@ function Settings() {
                     ) : setting.key === 'tax_mode' ? (
                       <Select
                         defaultValue={String(setting.value ?? '')}
-                        onChange={(e) => save.mutate({ key: setting.key, value: e.target.value })}
+                        onChange={(e) => {
+                          // Switching this does not just relabel the invoice. It
+                          // changes how every catalogue price is read, so the
+                          // same Rs 14,460 either contains GST or has 18% added
+                          // on top. Nobody should be able to do that by accident.
+                          const next = e.target.value
+                          const current = String(setting.value ?? '')
+                          if (next === current) return
+                          const warning =
+                            next === 'exclusive'
+                              ? [
+                                  'Switching to exclusive treats every catalogue price as PRE-tax.',
+                                  '18% GST will be ADDED at checkout, so every product effectively',
+                                  'becomes 18% more expensive unless you also reprice the catalogue.',
+                                  '',
+                                  'Continue?',
+                                ].join(' ')
+                              : [
+                                  'Switching to inclusive treats every catalogue price as already',
+                                  'containing GST, so what customers pay will drop by the tax',
+                                  'component.',
+                                  '',
+                                  'Continue?',
+                                ].join(' ')
+                          if (window.confirm(warning)) {
+                            save.mutate({ key: setting.key, value: next })
+                          } else {
+                            e.target.value = current
+                          }
+                        }}
                         className="py-1.5 text-sm"
                       >
                         <option value="inclusive">Inclusive (prices include GST)</option>
