@@ -46,6 +46,7 @@ interface CartState {
   giftWrap: boolean
   giftMessage: string
   couponCode: string | null
+  giftCardCode: string | null
 
   add: (line: Omit<CartLine, 'lineId'>) => void
   updateQuantity: (lineId: string, quantity: number) => void
@@ -54,6 +55,7 @@ interface CartState {
   setGiftWrap: (value: boolean) => void
   setGiftMessage: (value: string) => void
   setCoupon: (code: string | null) => void
+  setGiftCard: (code: string | null) => void
 
   itemCount: () => number
   subtotalPaisa: () => number
@@ -89,6 +91,7 @@ export const useCartStore = create<CartState>()(
       giftWrap: false,
       giftMessage: '',
       couponCode: null,
+      giftCardCode: null,
 
       add: (incoming) => {
         const lineId = makeLineId(incoming.variantId, incoming.personalization)
@@ -139,11 +142,12 @@ export const useCartStore = create<CartState>()(
       remove: (lineId) =>
         set((state) => ({ lines: state.lines.filter((line) => line.lineId !== lineId) })),
 
-      clear: () => set({ lines: [], giftWrap: false, giftMessage: '', couponCode: null }),
+      clear: () => set({ lines: [], giftWrap: false, giftMessage: '', couponCode: null, giftCardCode: null }),
 
       setGiftWrap: (giftWrap) => set({ giftWrap }),
       setGiftMessage: (giftMessage) => set({ giftMessage }),
       setCoupon: (couponCode) => set({ couponCode }),
+      setGiftCard: (giftCardCode) => set({ giftCardCode }),
 
       itemCount: () => get().lines.reduce((sum, line) => sum + line.quantity, 0),
       subtotalPaisa: () => get().lines.reduce((sum, line) => sum + lineTotalPaisa(line), 0),
@@ -162,6 +166,7 @@ export const useCartStore = create<CartState>()(
         giftWrap: state.giftWrap,
         giftMessage: state.giftMessage,
         couponCode: state.couponCode,
+        giftCardCode: state.giftCardCode,
       }),
     },
   ),

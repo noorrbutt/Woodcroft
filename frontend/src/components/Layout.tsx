@@ -131,7 +131,7 @@ function SearchBar({ onClose }: { onClose?: () => void }) {
             setOpen(true)
           }}
           onFocus={() => setOpen(true)}
-          placeholder="Search for a table, a board, a timber…"
+          placeholder="Search products…"
           aria-label="Search products"
           className="wc-input pl-9 pr-3 py-2 text-sm bg-sunken border-transparent focus-visible:bg-surface"
         />

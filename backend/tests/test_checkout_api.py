@@ -458,3 +458,48 @@ class TestCouponLimits:
             text("SELECT used_count FROM coupon WHERE code = 'FREESHIP'")
         ).scalar_one()
         assert used == 1
+
+
+class TestGiftCards:
+    """A gift card must actually reduce the total and be debited on order."""
+
+    def _order(self, variant, **kw):
+        body = {
+            "lines": [{"variant_id": variant, "quantity": 1, "personalization": {}}],
+            "province": "punjab", "payment_method": "cod",
+            "shipping": ADDRESS, "email": "guest@example.pk", "accept_terms": True,
+        }
+        body.update(kw)
+        return body
+
+    def test_gift_card_reduces_total_and_is_debited(self, client, variant, db) -> None:
+        db.execute(text(
+            "INSERT INTO gift_card (code, initial_balance_paisa, balance_paisa, status) "
+            "VALUES ('GIFT500', 500000, 500000, 'active')"))
+        db.flush()
+
+        quoted = client.post(
+            "/api/v1/checkout/quote",
+            json={"lines": [{"variant_id": variant, "quantity": 1, "personalization": {}}],
+                  "province": "punjab", "payment_method": "cod", "gift_card_code": "GIFT500"},
+        ).json()
+        assert quoted["gift_card_applied"]["paisa"] == 500000
+
+        placed = client.post(
+            "/api/v1/orders", json=self._order(variant, gift_card_code="GIFT500")
+        )
+        assert placed.status_code == 201, placed.text
+
+        balance = db.execute(
+            text("SELECT balance_paisa FROM gift_card WHERE code = 'GIFT500'")
+        ).scalar_one()
+        assert balance == 0  # the Rs 10,000 order consumed the whole Rs 5,000 card
+
+    def test_invalid_gift_card_is_flagged_not_applied(self, client, variant) -> None:
+        quoted = client.post(
+            "/api/v1/checkout/quote",
+            json={"lines": [{"variant_id": variant, "quantity": 1, "personalization": {}}],
+                  "province": "punjab", "payment_method": "cod", "gift_card_code": "NOPE"},
+        ).json()
+        assert quoted["gift_card_error"] == "invalid"
+        assert quoted["gift_card_applied"]["paisa"] == 0

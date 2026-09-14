@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 from app.core.errors import ConflictError
 from app.models.catalog import Product
 from app.models.enums import (
+    GiftCardStatus,
     LoyaltyTransactionKind,
     MovementReason,
     OrderStatus,
@@ -35,6 +36,8 @@ from app.models.order import Order, Payment, PaymentTransaction, Refund
 from app.models.promotion import (
     Coupon,
     CouponRedemption,
+    GiftCard,
+    GiftCardTransaction,
     LoyaltyAccount,
     LoyaltyTransaction,
 )
@@ -207,6 +210,8 @@ def reverse_order(
     """
     _restock(db, order, actor_id=actor_id, note=note)
     _refund_redeemed_loyalty(db, order)
+    _refund_gift_card(db, order)
+    _refund_store_credit(db, order)
     _release_coupon(db, order)
     _decrement_sales(db, order)
     _void_payments(db, order)
@@ -260,6 +265,53 @@ def _refund_redeemed_loyalty(db: Session, order: Order) -> None:
             note=f"Points returned from cancelled {order.order_number}",
         )
     )
+
+
+def _refund_gift_card(db: Session, order: Order) -> None:
+    if not order.gift_card_applied_paisa:
+        return
+    # The card that was spent is the one with a negative transaction on this
+    # order. Credit the spent amount back and reopen it if it had been exhausted.
+    spent = db.scalar(
+        select(GiftCardTransaction)
+        .where(
+            GiftCardTransaction.order_id == order.id,
+            GiftCardTransaction.delta_paisa < 0,
+        )
+        .order_by(GiftCardTransaction.created_at)
+    )
+    if spent is None:
+        return
+    card = db.scalar(
+        select(GiftCard).where(GiftCard.id == spent.gift_card_id).with_for_update()
+    )
+    if card is None:
+        return
+    refund = min(order.gift_card_applied_paisa, card.initial_balance_paisa - card.balance_paisa)
+    if refund <= 0:
+        return
+    card.balance_paisa += refund
+    if card.status is GiftCardStatus.REDEEMED and card.balance_paisa > 0:
+        card.status = GiftCardStatus.ACTIVE
+    db.add(GiftCardTransaction(
+        gift_card_id=card.id,
+        order_id=order.id,
+        delta_paisa=refund,
+        balance_after_paisa=card.balance_paisa,
+        note=f"Returned from cancelled {order.order_number}",
+    ))
+
+
+def _refund_store_credit(db: Session, order: Order) -> None:
+    if not order.store_credit_applied_paisa or not order.user_id:
+        return
+    from app.models.identity import User
+
+    user = db.get(User, order.user_id, with_for_update=True)
+    if user is not None:
+        user.store_credit_paisa = (
+            User.store_credit_paisa + order.store_credit_applied_paisa
+        )
 
 
 def _release_coupon(db: Session, order: Order) -> None:

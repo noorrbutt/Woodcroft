@@ -34,6 +34,7 @@ from app.core.ratelimit import limiter
 from app.models.catalog import PersonalizationOption, Product, ProductVariant
 from app.models.enums import (
     Courier,
+    GiftCardStatus,
     MovementReason,
     NotificationChannel,
     OrderStatus,
@@ -42,6 +43,7 @@ from app.models.enums import (
     PaymentStatus,
     TaxMode,
 )
+from app.models.identity import User
 from app.models.inventory import StockLevel, StockMovement
 from app.models.order import (
     Order,
@@ -52,7 +54,7 @@ from app.models.order import (
 )
 from app.models.sequences import order_number_seq
 from app.models.ops import ShippingRate, ShippingZone, StoreSetting
-from app.models.promotion import Coupon, CouponRedemption
+from app.models.promotion import Coupon, CouponRedemption, GiftCard, GiftCardTransaction
 from app.schemas.common import Message, Money, Schema
 from app.services import notifications
 from app.services.auth import normalise_phone
@@ -99,6 +101,9 @@ class QuoteIn(BaseModel):
     lines: list[CartLineIn] = Field(max_length=50)
     province: PakistanProvince | None = None
     coupon_code: str | None = None
+    gift_card_code: str | None = None
+    #: Signed-in customers can spend accrued store credit; on by default.
+    use_store_credit: bool = True
     payment_method: PaymentMethodCode = PaymentMethodCode.COD
     gift_wrap: bool = False
     loyalty_points: int = Field(0, ge=0)
@@ -139,11 +144,14 @@ class QuoteOut(Schema):
     gift_wrap: Money
     tax: Money
     loyalty_applied: Money
+    gift_card_applied: Money
+    store_credit_applied: Money
     total: Money
     tax_mode: TaxMode
     tax_rate_bp: int
     coupon_code: str | None
     coupon_error: str | None
+    gift_card_error: str | None = None
     loyalty_points_earned: int
     free_shipping: bool
     cod_available: bool
@@ -408,6 +416,7 @@ def _build_quote(db, payload: QuoteIn, user=None):
                 free_shipping = True
 
     loyalty_available = 0
+    store_credit = 0
     if user is not None:
         from app.models.promotion import LoyaltyAccount
 
@@ -415,6 +424,30 @@ def _build_quote(db, payload: QuoteIn, user=None):
             select(LoyaltyAccount).where(LoyaltyAccount.user_id == user.id)
         )
         loyalty_available = account.points_balance if account else 0
+        if payload.use_store_credit:
+            store_credit = user.store_credit_paisa or 0
+
+    # Resolve a gift card into a spendable balance. Never trust a balance from
+    # the client; read it from the row, which place_order re-locks before it
+    # debits.
+    gift_card = None
+    gift_card_balance = 0
+    gift_card_error = None
+    if payload.gift_card_code:
+        gift_card = db.scalar(
+            select(GiftCard).where(GiftCard.code == payload.gift_card_code.strip())
+        )
+        now = datetime.now(UTC)
+        if (
+            gift_card is None
+            or gift_card.status is not GiftCardStatus.ACTIVE
+            or gift_card.balance_paisa <= 0
+            or (gift_card.expires_at is not None and gift_card.expires_at < now)
+        ):
+            gift_card = None
+            gift_card_error = "invalid"
+        else:
+            gift_card_balance = gift_card.balance_paisa
 
     priced = quote(
         QuoteRequest(
@@ -428,6 +461,8 @@ def _build_quote(db, payload: QuoteIn, user=None):
             gift_wrap_paisa=35_000 if payload.gift_wrap else 0,
             loyalty_points_available=loyalty_available,
             loyalty_points_to_redeem=payload.loyalty_points,
+            gift_card_balance_paisa=gift_card_balance,
+            store_credit_paisa=store_credit,
         )
     )
 
@@ -439,6 +474,8 @@ def _build_quote(db, payload: QuoteIn, user=None):
         "cod_available": cod_available,
         "free_shipping": free_shipping,
         "coupon": resolved_coupon,
+        "gift_card": gift_card,
+        "gift_card_error": gift_card_error,
     }
 
 
@@ -481,11 +518,14 @@ def _quote_out(priced, meta, extra) -> QuoteOut:
         gift_wrap=Money.of(priced.gift_wrap_paisa),
         tax=Money.of(priced.tax_paisa),
         loyalty_applied=Money.of(priced.loyalty_applied_paisa),
+        gift_card_applied=Money.of(priced.gift_card_applied_paisa),
+        store_credit_applied=Money.of(priced.store_credit_applied_paisa),
         total=Money.of(priced.total_paisa),
         tax_mode=priced.tax_mode,
         tax_rate_bp=priced.tax_rate_bp,
         coupon_code=priced.coupon_code,
         coupon_error=priced.coupon_error,
+        gift_card_error=extra.get("gift_card_error"),
         loyalty_points_earned=priced.loyalty_points_earned,
         free_shipping=extra["free_shipping"],
         cod_available=extra["cod_available"],
@@ -645,6 +685,8 @@ def place_order(
         gift_wrap_paisa=priced.gift_wrap_paisa,
         tax_paisa=priced.tax_paisa,
         loyalty_applied_paisa=priced.loyalty_applied_paisa,
+        gift_card_applied_paisa=priced.gift_card_applied_paisa,
+        store_credit_applied_paisa=priced.store_credit_applied_paisa,
         total_paisa=priced.total_paisa,
         tax_mode=priced.tax_mode,
         tax_rate_bp=priced.tax_rate_bp,
@@ -774,6 +816,35 @@ def place_order(
                 balance_after=account.points_balance,
                 note=f"Redeemed against {order_number}",
             ))
+
+    # Spend the gift card. Re-lock and re-check the balance under the lock, then
+    # debit only what the quote actually applied, so a concurrent order for the
+    # same card cannot double-spend it.
+    if priced.gift_card_applied_paisa and extra.get("gift_card") is not None:
+        card = db.scalar(
+            select(GiftCard).where(GiftCard.id == extra["gift_card"].id).with_for_update()
+        )
+        if card is not None:
+            spend = min(priced.gift_card_applied_paisa, card.balance_paisa)
+            if spend > 0:
+                card.balance_paisa -= spend
+                if card.balance_paisa == 0:
+                    card.status = GiftCardStatus.REDEEMED
+                db.add(GiftCardTransaction(
+                    gift_card_id=card.id,
+                    order_id=order.id,
+                    delta_paisa=-spend,
+                    balance_after_paisa=card.balance_paisa,
+                    note=f"Spent on {order_number}",
+                ))
+
+    # Spend store credit, under a row lock, as a relative write.
+    if priced.store_credit_applied_paisa and user is not None:
+        locked_user = db.get(User, user.id, with_for_update=True)
+        if locked_user is not None:
+            locked_user.store_credit_paisa = (
+                User.store_credit_paisa - priced.store_credit_applied_paisa
+            )
 
     db.flush()
 

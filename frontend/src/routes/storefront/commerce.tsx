@@ -64,10 +64,13 @@ interface Quote {
   cod_surcharge: { paisa: number; display: string }
   gift_wrap: { paisa: number; display: string }
   tax: { paisa: number; display: string }
+  gift_card_applied: { paisa: number; display: string }
+  store_credit_applied: { paisa: number; display: string }
   total: { paisa: number; display: string }
   tax_mode: 'inclusive' | 'exclusive'
   coupon_code: string | null
   coupon_error: string | null
+  gift_card_error: string | null
   loyalty_points_earned: number
   free_shipping: boolean
   cod_available: boolean
@@ -86,6 +89,7 @@ interface PaymentMethod {
 function useQuotePayload(province?: Province) {
   const lines = useCartStore((state) => state.lines)
   const couponCode = useCartStore((state) => state.couponCode)
+  const giftCardCode = useCartStore((state) => state.giftCardCode)
   const giftWrap = useCartStore((state) => state.giftWrap)
 
   return useMemo(
@@ -99,10 +103,11 @@ function useQuotePayload(province?: Province) {
       })),
       province,
       coupon_code: couponCode ?? undefined,
+      gift_card_code: giftCardCode ?? undefined,
       payment_method: 'cod' as const,
       gift_wrap: giftWrap,
     }),
-    [lines, province, couponCode, giftWrap],
+    [lines, province, couponCode, giftCardCode, giftWrap],
   )
 }
 
@@ -337,6 +342,48 @@ interface SavedAddress {
   province: string
   postal_code: string | null
   is_default_shipping: boolean
+}
+
+function GiftCardField() {
+  const applied = useCartStore((state) => state.giftCardCode)
+  const setGiftCard = useCartStore((state) => state.setGiftCard)
+  const [code, setCode] = useState(applied ?? '')
+
+  if (applied) {
+    return (
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted">
+          Gift card <span className="font-mono">{applied}</span> applied
+        </span>
+        <button
+          type="button"
+          className="text-xs text-muted hover:text-ink"
+          onClick={() => { setGiftCard(null); setCode('') }}
+        >
+          Remove
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex gap-2">
+      <Input
+        placeholder="Gift card code"
+        value={code}
+        onChange={(e) => setCode(e.target.value)}
+        className="text-sm"
+      />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => setGiftCard(code.trim() || null)}
+      >
+        Apply
+      </Button>
+    </div>
+  )
 }
 
 /* ── Checkout ────────────────────────────────────────────────────────────── */
@@ -684,7 +731,23 @@ export function CheckoutPage() {
                   <dd className="tabular-nums">{quote.tax.display}</dd>
                 </div>
               )}
+              {quote && quote.gift_card_applied.paisa > 0 && (
+                <div className="flex justify-between text-[var(--wc-success)]">
+                  <dt>Gift card</dt>
+                  <dd className="tabular-nums">−{quote.gift_card_applied.display}</dd>
+                </div>
+              )}
+              {quote && quote.store_credit_applied.paisa > 0 && (
+                <div className="flex justify-between text-[var(--wc-success)]">
+                  <dt>Store credit</dt>
+                  <dd className="tabular-nums">−{quote.store_credit_applied.display}</dd>
+                </div>
+              )}
             </dl>
+
+            <div className="mt-4">
+              <GiftCardField />
+            </div>
 
             <div className="mt-4 flex items-baseline justify-between border-t border-line pt-4">
               <span className="font-display text-lg">Total</span>
