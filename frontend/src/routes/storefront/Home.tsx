@@ -122,25 +122,40 @@ function Collections() {
           description="Nine rooms' worth of work, from a six-seat dining table down to a chopping board."
         />
 
+        {/* Deliberately dark walnut plaques in both themes. It reads as engraved
+            wood, ties the section to the hero and story bands, and sidesteps the
+            surface flip entirely so the text is always cream on wood and never
+            washes out in dark mode. */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {categories.slice(0, 6).map((category, index) => (
             <Link
               key={category.id}
               to={`/collections/${category.slug}`}
-              className="group relative flex min-h-[15rem] flex-col justify-end overflow-hidden border border-line bg-raised p-6 wc-lift"
+              className="wc-lift group relative flex min-h-[13.5rem] flex-col justify-end overflow-hidden rounded-sm p-6 ring-1 ring-black/10"
+              style={{
+                background:
+                  'linear-gradient(150deg, var(--walnut-800) 0%, var(--walnut-900) 100%)',
+              }}
             >
-              <div className="wc-grain absolute inset-0" aria-hidden />
-              <span className="wc-numeral relative mb-2">
+              <div className="wc-grain absolute inset-0 opacity-60" aria-hidden />
+              {/* Brass baseline that lights up on hover. */}
+              <span
+                className="absolute inset-x-0 bottom-0 h-px bg-[var(--brass-400)] opacity-40 transition-opacity duration-300 group-hover:opacity-90"
+                aria-hidden
+              />
+              <span className="wc-numeral relative mb-2 !text-[var(--brass-300)]">
                 {String(index + 1).padStart(2, '0')}
               </span>
-              <h3 className="relative font-display text-2xl">{category.name}</h3>
-              <p className="relative mt-1 text-xs text-muted">
+              <h3 className="relative font-display text-2xl text-[var(--walnut-50)]">
+                {category.name}
+              </h3>
+              <p className="relative mt-1 text-xs text-[var(--walnut-200)]">
                 {category.product_count} pieces
               </p>
               <ArrowRight
                 size={18}
-                strokeWidth={1.25}
-                className="absolute right-6 top-6 text-faint transition-transform duration-300 group-hover:translate-x-1 group-hover:text-[var(--wc-brass)]"
+                strokeWidth={1.5}
+                className="absolute right-6 top-6 text-[var(--brass-300)] transition-transform duration-300 group-hover:translate-x-1"
                 aria-hidden
               />
             </Link>
@@ -196,7 +211,7 @@ function Story() {
       <div className="wc-container wc-section">
         <div className="grid items-center gap-12 lg:grid-cols-2">
           <div>
-            <span className="wc-numeral !text-[var(--brass-300)]">04</span>
+            <span className="wc-numeral !text-on-inverse opacity-70">04</span>
             <h2 className="mt-4 text-on-inverse">
               Every board is chosen by hand
             </h2>
@@ -221,7 +236,7 @@ function Story() {
           </div>
 
           <figure className="relative">
-            <blockquote className="border-l-2 border-[var(--brass-400)] pl-6">
+            <blockquote className="border-l-2 border-on-inverse/40 pl-6">
               <p className="font-display text-2xl leading-relaxed text-on-inverse"
                  style={{ fontVariationSettings: '"SOFT" 40, "WONK" 1, "opsz" 72' }}>
                 “They measured my alcove twice before cutting anything. That
