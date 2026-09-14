@@ -313,7 +313,7 @@ export function ContactPage() {
           <dl className="mt-8 space-y-4 text-sm">
             <div>
               <dt className="wc-eyebrow mb-1">Workshop</dt>
-              <dd className="text-muted">14-C Commercial Area, Gulberg III, Lahore</dd>
+              <dd className="text-muted">Surjani Town, Karachi, Pakistan</dd>
             </div>
             <div>
               <dt className="wc-eyebrow mb-1">Email</dt>

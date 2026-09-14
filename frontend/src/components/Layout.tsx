@@ -395,10 +395,10 @@ function Footer() {
             <Wordmark className="text-xl" />
             <p className="mt-3 max-w-xs text-sm text-muted">
               Solid timber furniture and woodware, cut and joined by hand in
-              Lahore since 2009.
+              Karachi since 2002.
             </p>
             <p className="mt-4 text-xs text-faint">
-              14-C Commercial Area, Gulberg III, Lahore
+              Surjani Town, Karachi, Pakistan
               <br />
               hello@woodcroft.pk · 0300 1234567
             </p>
