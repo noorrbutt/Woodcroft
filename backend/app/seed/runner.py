@@ -446,7 +446,7 @@ class Seeder:
 
         self._make_variants(product, base, wood)
         self._make_personalization(product, base)
-        self._make_images(product, wood, media_root, write_plate)
+        self._make_images(product, wood, media_root, write_plate, base.category)
 
         self.products.append(product)
         return product
@@ -581,15 +581,25 @@ class Seeder:
                 ))
 
     def _make_images(self, product: Product, wood: WoodSpecies,
-                     media_root, write_plate) -> None:
+                     media_root, write_plate, subcategory: str) -> None:
         count = 3
+        use_photos = self.with_images and settings.SEED_IMAGE_MODE == "curated"
+        photo_ids: list[str] = []
+        if use_photos:
+            from app.services.media.photos import photo_ids_for
+            photo_ids = photo_ids_for(subcategory, product.slug, count)
+
         for angle in range(count):
             rel = f"products/{product.slug}/{angle}"
-            if self.with_images:
-                meta = write_plate(
-                    media_root, rel, wood, key=product.slug, angle=angle
-                )
-            else:
+            meta = None
+            # Prefer a real curated photo; fall back to a generated plate if the
+            # download fails, so an offline seed still produces images.
+            if use_photos and angle < len(photo_ids):
+                from app.services.media.photos import write_photo
+                meta = write_photo(media_root, rel, photo_ids[angle])
+            if meta is None and self.with_images:
+                meta = write_plate(media_root, rel, wood, key=product.slug, angle=angle)
+            if meta is None:
                 meta = {
                     "base_path": rel, "sizes": [400, 800, 1600],
                     "width": 1000, "height": 1250, "aspect": 0.8,

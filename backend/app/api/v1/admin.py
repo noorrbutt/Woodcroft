@@ -13,9 +13,9 @@ import uuid
 from datetime import UTC, date, datetime, timedelta
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
 from pydantic import BaseModel, Field
-from sqlalchemy import String, and_, case, cast, func, or_, select
+from sqlalchemy import String, and_, case, cast, func, or_, select, update
 from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
@@ -23,7 +23,7 @@ from app.core.deps import DbSession, StaffUser, require_permission
 from app.core.errors import NotFoundError, ValidationError
 from app.core.money import format_pkr, paisa_to_rupees
 from app.core.permissions import Permission
-from app.models.catalog import Category, Product, ProductVariant
+from app.models.catalog import Category, Product, ProductImage, ProductVariant
 from app.models.content import SupportTicket
 from app.models.enums import (
     MovementReason,
@@ -600,6 +600,154 @@ def update_product(
               entity_id=product.id, summary=f"Updated {product.name}", changes=changes)
 
     return Message(message="Product updated.")
+
+
+# ── Product images ────────────────────────────────────────────────────────────
+class ProductImageOut(Schema):
+    id: uuid.UUID
+    url: str
+    thumb_url: str
+    alt_text: str
+    is_primary: bool
+    sort_order: int
+    source: str
+
+
+MAX_IMAGE_BYTES = 8 * 1024 * 1024
+
+
+def _image_out(image: ProductImage) -> ProductImageOut:
+    return ProductImageOut(
+        id=image.id,
+        url=f"{settings.MEDIA_URL}/{image.base_path}_800.webp",
+        thumb_url=f"{settings.MEDIA_URL}/{image.base_path}_400.webp",
+        alt_text=image.alt_text,
+        is_primary=image.is_primary,
+        sort_order=image.sort_order,
+        source=image.source,
+    )
+
+
+@router.get("/products/{product_id}/images", response_model=list[ProductImageOut])
+def list_product_images(
+    product_id: uuid.UUID,
+    db: DbSession,
+    _: Annotated[User, Depends(require_permission(Permission.PRODUCT_EDIT))],
+) -> list[ProductImageOut]:
+    images = db.scalars(
+        select(ProductImage)
+        .where(ProductImage.product_id == product_id)
+        .order_by(ProductImage.sort_order, ProductImage.created_at)
+    ).all()
+    return [_image_out(i) for i in images]
+
+
+@router.post(
+    "/products/{product_id}/images",
+    response_model=ProductImageOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_product_image(
+    product_id: uuid.UUID,
+    db: DbSession,
+    actor: Annotated[User, Depends(require_permission(Permission.PRODUCT_EDIT))],
+    file: Annotated[UploadFile, File()],
+) -> ProductImageOut:
+    """Upload a real product photo, processed into the webp size family.
+
+    Lets an admin replace the seeded placeholder with the actual product.
+    """
+    from app.services.media.photos import write_upload
+
+    product = db.get(Product, product_id)
+    if product is None:
+        raise NotFoundError("Product not found.")
+
+    if file.content_type and not file.content_type.startswith("image/"):
+        raise ValidationError("Please upload an image file.")
+    data = await file.read()
+    if len(data) > MAX_IMAGE_BYTES:
+        raise ValidationError("Images must be 8 MB or smaller.")
+
+    existing = db.scalars(
+        select(ProductImage).where(ProductImage.product_id == product_id)
+    ).all()
+    next_order = max((i.sort_order for i in existing), default=-1) + 1
+    rel = f"products/{product.slug}/upload-{uuid.uuid4().hex[:8]}"
+    try:
+        meta = write_upload(settings.media_path, rel, data)
+    except ValueError as exc:
+        raise ValidationError(str(exc)) from exc
+
+    image = ProductImage(
+        product_id=product_id,
+        alt_text=f"{product.name}",
+        sort_order=next_order,
+        is_primary=not existing,  # first image of a product becomes primary
+        **meta,
+    )
+    db.add(image)
+    db.flush()
+    audit(db, actor, action="product.image_add", entity_type="product",
+          entity_id=product_id, summary=f"Added an image to {product.name}")
+    return _image_out(image)
+
+
+@router.post("/products/images/{image_id}/primary", response_model=Message)
+def set_primary_image(
+    image_id: uuid.UUID,
+    db: DbSession,
+    actor: Annotated[User, Depends(require_permission(Permission.PRODUCT_EDIT))],
+) -> Message:
+    image = db.get(ProductImage, image_id)
+    if image is None:
+        raise NotFoundError("Image not found.")
+    db.execute(
+        update(ProductImage)
+        .where(ProductImage.product_id == image.product_id)
+        .values(is_primary=False)
+    )
+    image.is_primary = True
+    audit(db, actor, action="product.image_primary", entity_type="product",
+          entity_id=image.product_id, summary="Changed the primary image")
+    return Message(message="Primary image updated.")
+
+
+@router.delete("/products/images/{image_id}", response_model=Message)
+def delete_product_image(
+    image_id: uuid.UUID,
+    db: DbSession,
+    actor: Annotated[User, Depends(require_permission(Permission.PRODUCT_EDIT))],
+) -> Message:
+    image = db.get(ProductImage, image_id)
+    if image is None:
+        raise NotFoundError("Image not found.")
+
+    product_id = image.product_id
+    was_primary = image.is_primary
+    # Remove the generated files, ignoring any that are already gone.
+    for size in image.sizes or ():
+        path = settings.media_path / f"{image.base_path}_{size}.webp"
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            pass
+    db.delete(image)
+    db.flush()
+
+    # Keep exactly one primary: promote the next image if we removed the primary.
+    if was_primary:
+        nxt = db.scalar(
+            select(ProductImage)
+            .where(ProductImage.product_id == product_id)
+            .order_by(ProductImage.sort_order, ProductImage.created_at)
+        )
+        if nxt is not None:
+            nxt.is_primary = True
+
+    audit(db, actor, action="product.image_delete", entity_type="product",
+          entity_id=product_id, summary="Removed a product image")
+    return Message(message="Image removed.")
 
 
 # ── Inventory ────────────────────────────────────────────────────────────────

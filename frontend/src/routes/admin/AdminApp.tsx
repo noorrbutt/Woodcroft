@@ -8,7 +8,7 @@
  * starts looking precious instead of usable.
  */
 
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { Link, NavLink, Route, Routes } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -43,12 +43,13 @@ import {
   Users,
 } from 'lucide-react'
 
-import { ApiError, download, get, patch, post, put } from '@/lib/api'
+import { api, ApiError, del, download, get, patch, post, put } from '@/lib/api'
 import { cn } from '@/lib/cn'
 import { formatDate, formatDateTime, relativeTime } from '@/lib/format'
 import {
   Badge,
   Button,
+  Checkbox,
   EmptyState,
   Field,
   Input,
@@ -548,6 +549,7 @@ function Orders() {
 function Products() {
   const [q, setQ] = useState('')
   const [page, setPage] = useState(1)
+  const [imagesFor, setImagesFor] = useState<any>(null)
   const queryClient = useQueryClient()
 
   const { data, isLoading } = useQuery({
@@ -609,16 +611,27 @@ function Products() {
             ) },
           { key: 'featured', label: 'Featured', className: 'text-center',
             render: (row: any) => (
-              <input
-                type="checkbox"
+              <Checkbox
+                label={null}
                 checked={row.is_featured}
+                aria-label={`Feature ${row.name}`}
                 onChange={(e) =>
                   toggleFeatured.mutate({ id: row.id, value: e.target.checked })
                 }
               />
             ) },
+          { key: 'images', label: 'Images', className: 'text-right',
+            render: (row: any) => (
+              <Button size="sm" variant="ghost" onClick={() => setImagesFor(row)}>
+                Manage
+              </Button>
+            ) },
         ]}
       />
+
+      {imagesFor && (
+        <ProductImagesModal product={imagesFor} onClose={() => setImagesFor(null)} />
+      )}
 
       {data && data.pages > 1 && (
         <div className="mt-4 flex items-center justify-center gap-2">
@@ -630,6 +643,128 @@ function Products() {
         </div>
       )}
     </>
+  )
+}
+
+interface AdminImage {
+  id: string
+  url: string
+  thumb_url: string
+  alt_text: string
+  is_primary: boolean
+  source: string
+}
+
+function ProductImagesModal({ product, onClose }: { product: any; onClose: () => void }) {
+  const queryClient = useQueryClient()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+
+  const { data: images = [], isLoading } = useQuery({
+    queryKey: ['admin-product-images', product.id],
+    queryFn: () => get<AdminImage[]>(`/admin/products/${product.id}/images`),
+  })
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin-product-images', product.id] })
+    queryClient.invalidateQueries({ queryKey: ['admin-products'] })
+  }
+
+  const onFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      await api(`/admin/products/${product.id}/images`, { method: 'POST', body: form })
+      toast.success('Image uploaded')
+      refresh()
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Upload failed')
+    } finally {
+      setUploading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  const setPrimary = useMutation({
+    mutationFn: (id: string) => post<ApiMessage>(`/admin/products/images/${id}/primary`),
+    onSuccess: () => { toast.success('Primary image set'); refresh() },
+  })
+  const remove = useMutation({
+    mutationFn: (id: string) => del<ApiMessage>(`/admin/products/images/${id}`),
+    onSuccess: () => { toast.success('Image removed'); refresh() },
+    onError: () => toast.error('Could not remove the image'),
+  })
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`Images — ${product.name}`}
+      footer={<Button variant="ghost" onClick={onClose}>Done</Button>}
+    >
+      <p className="mb-4 text-sm text-muted">
+        Upload the actual product photos here. The first image becomes the main
+        one shown on the storefront; use “Make main” to change it.
+      </p>
+
+      <div className="mb-5">
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          onChange={onFile}
+          className="hidden"
+        />
+        <Button
+          variant="outline"
+          size="sm"
+          loading={uploading}
+          onClick={() => fileRef.current?.click()}
+        >
+          Upload image
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <Skeleton className="h-32 w-full" />
+      ) : images.length === 0 ? (
+        <p className="text-sm text-faint">No images yet.</p>
+      ) : (
+        <div className="grid grid-cols-3 gap-3">
+          {images.map((image) => (
+            <div key={image.id} className="border border-line p-2">
+              <img
+                src={image.thumb_url}
+                alt={image.alt_text}
+                className="aspect-4/5 w-full object-cover"
+                loading="lazy"
+              />
+              <div className="mt-2 flex items-center justify-between gap-1">
+                {image.is_primary ? (
+                  <Badge tone="success">Main</Badge>
+                ) : (
+                  <button
+                    className="text-xs text-muted hover:text-ink"
+                    onClick={() => setPrimary.mutate(image.id)}
+                  >
+                    Make main
+                  </button>
+                )}
+                <button
+                  className="text-xs text-[var(--wc-danger)] hover:underline"
+                  onClick={() => remove.mutate(image.id)}
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Modal>
   )
 }
 

@@ -31,8 +31,22 @@ def upgrade() -> None:
     )
     op.create_index("ix_order_access_token", "order", ["access_token"])
 
+    # Allow admin-uploaded product images alongside generated and curated ones.
+    op.drop_constraint("ck_product_image_source_is_known", "product_image", type_="check")
+    op.create_check_constraint(
+        "ck_product_image_source_is_known",
+        "product_image",
+        "source IN ('generated', 'curated', 'uploaded')",
+    )
+
 
 def downgrade() -> None:
+    op.drop_constraint("ck_product_image_source_is_known", "product_image", type_="check")
+    op.create_check_constraint(
+        "ck_product_image_source_is_known",
+        "product_image",
+        "source IN ('generated', 'curated')",
+    )
     op.drop_index("ix_order_access_token", table_name="order")
     op.drop_column("order", "access_token")
     op.execute("DROP SEQUENCE IF EXISTS return_number_seq")

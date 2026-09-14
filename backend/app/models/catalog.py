@@ -434,7 +434,9 @@ class ProductImage(BaseModel):
 
     __table_args__ = (
         CheckConstraint("width > 0 AND height > 0", name="dimensions_positive"),
-        CheckConstraint("source IN ('generated', 'curated')", name="source_is_known"),
+        CheckConstraint(
+            "source IN ('generated', 'curated', 'uploaded')", name="source_is_known"
+        ),
         # Exactly one primary image per product.
         Index(
             "uq_product_image_primary",

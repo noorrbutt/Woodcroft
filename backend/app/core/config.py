@@ -90,7 +90,7 @@ class Settings(BaseSettings):
     # ── Media ────────────────────────────────────────────────────────────────
     MEDIA_ROOT: str = "media"
     MEDIA_URL: str = "/media"
-    SEED_IMAGE_MODE: Literal["generated", "curated"] = "generated"
+    SEED_IMAGE_MODE: Literal["generated", "curated"] = "curated"
     UNSPLASH_ACCESS_KEY: str = ""
 
     # ── URLs ─────────────────────────────────────────────────────────────────

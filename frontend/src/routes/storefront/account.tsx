@@ -817,11 +817,15 @@ export function AccountAddresses() {
         footer={
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={close}>Cancel</Button>
-            <Button loading={save.isPending} onClick={() => save.mutate()}>Save</Button>
+            {/* The footer sits outside the form element, so bind the button to
+                it by id. Without this the Save button submitted with no owning
+                form and skipped every required-field check. */}
+            <Button type="submit" form="address-form" loading={save.isPending}>Save</Button>
           </div>
         }
       >
         <form
+          id="address-form"
           className="grid gap-4 sm:grid-cols-2"
           onSubmit={(event: FormEvent) => {
             event.preventDefault()
