@@ -620,9 +620,9 @@ function ProductBody({ slug }: { slug: string }) {
 
             <Accordion title="Delivery and returns">
               <p>
-                Delivered across Pakistan. Punjab and Islamabad usually take
-                three to five working days, Sindh and KP five to seven, and the
-                far north up to ten.
+                Delivered across Pakistan. Sindh usually takes three to five
+                working days, Punjab and Islamabad five to seven, and the far
+                north up to ten.
               </p>
               <p className="mt-2">
                 Returns accepted within 14 days of delivery, provided the piece

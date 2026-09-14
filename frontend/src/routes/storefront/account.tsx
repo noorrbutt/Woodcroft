@@ -696,7 +696,7 @@ interface AddressRecord {
 
 const EMPTY_ADDRESS = {
   label: '', full_name: '', phone: '', line1: '', line2: '', area: '',
-  landmark: '', city: '', province: 'punjab' as Province, postal_code: '',
+  landmark: '', city: '', province: 'sindh' as Province, postal_code: '',
   is_default_shipping: false, is_default_billing: false,
 }
 

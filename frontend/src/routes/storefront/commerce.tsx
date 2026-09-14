@@ -402,7 +402,7 @@ export function CheckoutPage() {
     area: '',
     landmark: '',
     city: '',
-    province: 'punjab' as Province,
+    province: 'sindh' as Province,
     postal_code: '',
   })
   const [email, setEmail] = useState(user?.email ?? '')
@@ -589,7 +589,7 @@ export function CheckoutPage() {
                 </Field>
               </div>
               <Field label="Area or sector" id="area">
-                <Input id="area" placeholder="Gulberg III" value={form.area} onChange={bind('area')} />
+                <Input id="area" placeholder="Gulshan-e-Iqbal" value={form.area} onChange={bind('area')} />
               </Field>
               <Field label="Nearest landmark" id="landmark" hint="Couriers rely on this">
                 <Input id="landmark" placeholder="Near the park" value={form.landmark} onChange={bind('landmark')} />
