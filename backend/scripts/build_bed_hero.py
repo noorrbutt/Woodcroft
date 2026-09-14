@@ -1,76 +1,45 @@
-"""Composite the bedroom hero where "Made to be kept" rises from behind the bed.
+"""Composite the bedroom hero: "Made to be kept" behind the bed, on the wall.
 
-A spacious room shot from afar (bed set back, nightstands beside it) is warmed
-slightly, then the words are drawn on the back wall and the bed is painted back
-over their lower edge so the wordmark reads as emerging from behind it, staying
-pixel-aligned with the bed at every screen size.
+The effect is the MODUS / HORIZON layering — background wall, then the wordmark,
+then the bed as a foreground cutout painted back on top so it overlaps the base
+of the centre letters while the outer letters stay full on the wall. The bed is
+"cut out" with a simple silhouette mask (headboard + frame + nightstands), which
+is reliable for a straight-on, symmetrical bedroom.
 
-Two crops are written: a 16:9 desktop cut (one line) and a 9:16 phone cut (two
-lines). Media lives outside git, so this is the repeatable way to rebuild the
-hero after a fresh checkout.
+Source is a committed asset (scripts/assets/bedroom_hero.jpg). Two crops are
+written into the gitignored media dir: a 16:9 desktop cut (one line) and a 4:5
+phone cut (two lines). This is the repeatable way to rebuild the hero.
 
-    PEXELS_API_KEY=... python -m scripts.build_bed_hero
+    python -m scripts.build_bed_hero
 
-Run from the backend/ directory. Needs numpy (see requirements-dev.txt).
+Run from the backend/ directory.
 """
 
 from __future__ import annotations
 
-import io
-import json
-import ssl
 import sys
-import urllib.request
 from pathlib import Path
 
-import numpy as np
-from PIL import Image, ImageDraw, ImageEnhance, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from app.core.config import settings
-from app.services.media.pexels import api_key
 
-_CTX = ssl.create_default_context()
-_UA = "WoodcroftCatalog/1.0"
-PHOTO_ID = 7045862  # spacious room, foot-first, big clean wall above the bed
+SOURCE = Path("scripts/assets/bedroom_hero.jpg")
 FONT = Path("app/services/media/fonts/Lora.ttf")
-INK = (52, 38, 28)
+INK = (50, 37, 27)
 
 
-def _fetch() -> Image.Image | None:
-    key = api_key()
-    if not key:
-        return None
-    try:
-        meta = json.loads(_req(f"https://api.pexels.com/v1/photos/{PHOTO_ID}", key))
-        return Image.open(io.BytesIO(_req(meta["src"]["original"]))).convert("RGB")
-    except Exception:
-        return None
+def _upscale(im: Image.Image, target_w: int) -> Image.Image:
+    return im.resize((target_w, round(target_w * im.height / im.width)), Image.LANCZOS)
 
 
-def _req(url: str, key: str | None = None) -> bytes:
-    headers = {"User-Agent": _UA}
-    if key:
-        headers["Authorization"] = key
-    return urllib.request.urlopen(
-        urllib.request.Request(url, headers=headers), timeout=40, context=_CTX
-    ).read()
-
-
-def _warm(im: Image.Image) -> Image.Image:
-    arr = np.asarray(im).astype(np.float32)
-    arr[..., 0] *= 1.03
-    arr[..., 2] *= 0.945
-    out = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
-    return ImageEnhance.Contrast(out).enhance(1.03)
-
-
-def _occlusion(size: tuple[int, int], cut: float) -> Image.Image:
-    cw, ch = size
-    cut_px, fe = int(cut * ch), int(0.013 * ch)
-    m = np.zeros((ch, cw), np.float32)
-    m[cut_px:] = 1.0
-    m[cut_px - fe : cut_px + fe] = np.linspace(0, 1, 2 * fe)[:, None]
-    return Image.fromarray((m * 255).astype(np.uint8), "L")
+def _bed_mask(cw: int, chh: int, rects: list[tuple[float, float, float, float]]) -> Image.Image:
+    """Opaque over the bed silhouette (fraction rects), transparent over the wall."""
+    m = Image.new("L", (cw, chh), 0)
+    d = ImageDraw.Draw(m)
+    for x0, y0, x1, y1 in rects:
+        d.rounded_rectangle((x0 * cw, y0 * chh, x1 * cw, y1 * chh), radius=int(0.02 * cw), fill=255)
+    return m.filter(ImageFilter.GaussianBlur(int(0.006 * cw)))
 
 
 def _font_for(text: str, target_w: int) -> ImageFont.FreeTypeFont:
@@ -79,61 +48,63 @@ def _font_for(text: str, target_w: int) -> ImageFont.FreeTypeFont:
     return ImageFont.truetype(str(FONT), int(200 * target_w / (bb[2] - bb[0])))
 
 
-def _centre(draw: ImageDraw.ImageDraw, text: str, font, cx: int, top: int) -> None:
+def _centre(draw: ImageDraw.ImageDraw, text: str, font, cx: int, baseline: int) -> None:
     bb = font.getbbox(text)
-    draw.text((cx - (bb[2] - bb[0]) // 2 - bb[0], top - bb[1]), text, font=font, fill=INK)
+    draw.text((cx - (bb[2] - bb[0]) // 2 - bb[0], baseline - (bb[3] - bb[1]) - bb[1]),
+              text, font=font, fill=INK)
 
 
 def _save(img: Image.Image, base: Path, widths: tuple[int, ...]) -> None:
     base.parent.mkdir(parents=True, exist_ok=True)
     cw, ch = img.size
-    for wpx in widths:
-        img.resize((wpx, round(wpx * ch / cw)), Image.LANCZOS).save(
-            f"{base}_{wpx}.webp", "WEBP", quality=86, method=4
+    for w in widths:
+        img.resize((w, round(w * ch / cw)), Image.LANCZOS).save(
+            f"{base}_{w}.webp", "WEBP", quality=88, method=4
         )
 
 
 def main() -> int:
-    if not FONT.exists():
-        print(f"Font missing: {FONT}")
+    if not SOURCE.exists() or not FONT.exists():
+        print(f"Missing source ({SOURCE}) or font ({FONT}).")
         return 1
-    src = _fetch()
-    if src is None:
-        print("Could not fetch the hero photo (PEXELS_API_KEY set?).")
-        return 1
-    src = _warm(src)
     root = Path(settings.MEDIA_ROOT)
-    W, H = src.size
+    base = Image.open(SOURCE).convert("RGB")
 
-    # Desktop 16:9, single line rising from behind the bed.
+    # Desktop 16:9, one line spanning the wall.
+    src = _upscale(base, 1920)
+    W, H = src.size
     ch = int(W / (16 / 9))
-    top = int(0.135 * H)
+    top = int((H - ch) * 0.30)
     crop = src.crop((0, top, W, top + ch))
     cw, chh = crop.size
-    cut = (0.545 * H - top) / chh
-    f = _font_for("Made to be kept", int(cw * 0.62))
-    bb = f.getbbox("Made to be kept")
-    tp = int((cut - 0.66 * ((bb[3] - bb[1]) / chh)) * chh) - bb[1]
+    mask = _bed_mask(cw, chh, [
+        (0.27, 0.55, 0.73, 1.0),   # headboard
+        (0.19, 0.68, 0.81, 1.0),   # bed frame
+        (0.10, 0.66, 0.26, 1.0),   # left nightstand
+        (0.74, 0.66, 0.90, 1.0),   # right nightstand
+    ])
     comp = crop.copy()
-    _centre(ImageDraw.Draw(comp), "Made to be kept", f, cw // 2, tp)
-    comp.paste(crop, (0, 0), _occlusion(comp.size, cut))
+    _centre(ImageDraw.Draw(comp), "Made to be kept", _font_for("Made to be kept", int(cw * 0.82)),
+            cw // 2, int(0.635 * chh))
+    comp.paste(crop, (0, 0), mask)
     _save(comp, root / "hero" / "bed_hero", (800, 1600, 2400))
     print("desktop hero: ok")
 
-    # Phone 9:16, two lines.
-    mcw = int(H * 9 / 16)
-    mc = src.crop(((W - mcw) // 2, 0, (W - mcw) // 2 + mcw, H))
+    # Phone 4:5, two lines.
+    src = _upscale(base, 1400)
+    W, H = src.size
+    cw2 = int(H * 4 / 5)
+    mc = src.crop(((W - cw2) // 2, 0, (W - cw2) // 2 + cw2, H))
     cw, chh = mc.size
-    cut = 0.545
-    f = _font_for("be kept", int(cw * 0.82))
-    bb = f.getbbox("be kept")
-    lh = int((bb[3] - bb[1]) * 1.04)
-    l2 = int((cut - 0.62 * ((bb[3] - bb[1]) / chh)) * chh) - bb[1]
+    mask = _bed_mask(cw, chh, [(0.14, 0.55, 0.86, 1.0), (0.04, 0.68, 0.96, 1.0)])
+    f = _font_for("be kept", int(cw * 0.80))
+    lh = int((f.getbbox("be kept")[3] - f.getbbox("be kept")[1]) * 1.06)
     comp = mc.copy()
     d = ImageDraw.Draw(comp)
-    _centre(d, "Made to", f, cw // 2, l2 - lh)
-    _centre(d, "be kept", f, cw // 2, l2)
-    comp.paste(mc, (0, 0), _occlusion(comp.size, cut))
+    b2 = int(0.62 * chh)
+    _centre(d, "Made to", f, cw // 2, b2 - lh)
+    _centre(d, "be kept", f, cw // 2, b2)
+    comp.paste(mc, (0, 0), mask)
     _save(comp, root / "hero" / "bed_hero_m", (600, 900, 1200))
     print("phone hero: ok")
     return 0
