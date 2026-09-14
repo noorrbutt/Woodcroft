@@ -85,6 +85,29 @@ app.add_middleware(
 register_exception_handlers(app)
 
 
+@app.middleware("http")
+async def security_headers(request, call_next):
+    """Baseline security headers on every response.
+
+    Not a substitute for a reverse proxy setting HSTS at the edge, but these
+    cost nothing and close off clickjacking, MIME sniffing and referrer leakage
+    by default rather than relying on the deployment to remember.
+    """
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault(
+        "Permissions-Policy", "geolocation=(), microphone=(), camera=()"
+    )
+    if settings.is_production:
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+        )
+    return response
+
+
+
 @app.exception_handler(RateLimitExceeded)
 async def _rate_limited(request, exc):
     from fastapi.responses import JSONResponse

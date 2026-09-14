@@ -322,7 +322,7 @@ def subscribe(payload: NewsletterIn, db: DbSession) -> Message:
         db, "welcome", payload.email,
         recipient_name=payload.name,
         context={"coupon_code": "WELCOME10", "discount_percent": 10,
-                 "shop_url": "http://localhost:5173/shop"},
+                 "shop_url": f"{settings.PUBLIC_URL}/shop"},
     )
     return Message(message="Thank you. Check your email for your 10% code.")
 
@@ -537,5 +537,5 @@ def referrals(db: DbSession, user: CurrentUser) -> ReferralOut:
         invited=len(rows),
         qualified=len(qualified),
         total_earned=Money.of(sum(r.referrer_reward_paisa for r in qualified)),
-        share_url=f"http://localhost:5173/register?ref={user.referral_code or ''}",
+        share_url=f"{settings.PUBLIC_URL}/register?ref={user.referral_code or ''}",
     )

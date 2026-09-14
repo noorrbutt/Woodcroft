@@ -44,7 +44,7 @@ from app.services import notifications
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-FRONTEND = "http://localhost:5173"
+FRONTEND = settings.PUBLIC_URL
 
 
 def _tokens(access: str, refresh: str) -> TokenPair:

@@ -685,7 +685,7 @@ def place_order(
             recipient_name=shipping.full_name,
             context={
                 "order_number": order_number,
-                "order_url": f"http://localhost:5173/order/{order_number}",
+                "order_url": f"{settings.PUBLIC_URL}/order/{order_number}",
                 "items": [
                     {
                         "name": item.product_name,

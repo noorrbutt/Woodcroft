@@ -129,7 +129,7 @@ def send_abandoned_cart_reminder(db: Session, payload: dict[str, Any]) -> None:
         record.email,
         user_id=record.user_id,
         context={
-            "cart_url": "http://localhost:5173/cart",
+            "cart_url": f"{settings.PUBLIC_URL}/cart",
             "item_count": record.item_count,
             "cart_value_paisa": record.cart_value_paisa,
             "sequence": payload.get("sequence", 1),
@@ -173,7 +173,7 @@ def notify_back_in_stock(db: Session, payload: dict[str, Any]) -> None:
             user_id=subscription.user_id,
             context={
                 "product_name": product.name,
-                "product_url": f"http://localhost:5173/product/{product.slug}",
+                "product_url": f"{settings.PUBLIC_URL}/product/{product.slug}",
             },
         )
         subscription.notified_at = _now()
@@ -203,7 +203,7 @@ def notify_price_drop(db: Session, payload: dict[str, Any]) -> None:
             user=user,
             context={
                 "product_name": product.name,
-                "product_url": f"http://localhost:5173/product/{product.slug}",
+                "product_url": f"{settings.PUBLIC_URL}/product/{product.slug}",
                 "old_price_paisa": watch.watched_price_paisa,
                 "new_price_paisa": product.base_price_paisa,
             },
@@ -252,7 +252,7 @@ def send_review_reminders(db: Session, payload: dict[str, Any]) -> None:
             order_id=order.id,
             context={
                 "order_number": order.order_number,
-                "review_url": f"http://localhost:5173/account/orders/{order.id}",
+                "review_url": f"{settings.PUBLIC_URL}/account/orders/{order.id}",
             },
         )
 

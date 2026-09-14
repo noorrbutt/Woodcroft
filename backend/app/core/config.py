@@ -93,6 +93,11 @@ class Settings(BaseSettings):
     SEED_IMAGE_MODE: Literal["generated", "curated"] = "generated"
     UNSPLASH_ACCESS_KEY: str = ""
 
+    # ── URLs ─────────────────────────────────────────────────────────────────
+    #: Absolute base for links in emails. Defaults to the dev storefront;
+    #: MUST be set in production or customers get localhost links.
+    PUBLIC_URL: str = "http://localhost:5173"
+
     # ── CORS ─────────────────────────────────────────────────────────────────
     # NoDecode stops pydantic-settings JSON-parsing this at the source layer,
     # so a plain comma-separated value in .env reaches the validator below.
@@ -131,6 +136,34 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.APP_ENV == "production"
+
+    def model_post_init(self, _context: object) -> None:
+        """Refuse to start insecurely in production.
+
+        A default secret key or DEBUG left on in production is the kind of
+        mistake that only surfaces after an incident. Failing to boot is far
+        cheaper than shipping it.
+        """
+        if not self.is_production:
+            return
+        problems: list[str] = []
+        # Catch the code default, the .env.example placeholder, and anything
+        # short. A long-but-placeholder secret is the easy one to miss.
+        weak = {
+            "dev-only-insecure-key-change-in-production",
+            "change-me-to-a-long-random-string-in-production",
+        }
+        if self.SECRET_KEY in weak or "change-me" in self.SECRET_KEY or len(self.SECRET_KEY) < 32:
+            problems.append("SECRET_KEY must be a strong, non-placeholder value (32+ chars)")
+        if self.DEBUG:
+            problems.append("DEBUG must be false")
+        if any("localhost" in o or "127.0.0.1" in o for o in self.CORS_ORIGINS):
+            problems.append("CORS_ORIGINS still contains localhost")
+        if problems:
+            bullet = "\n  - "
+            raise RuntimeError(
+                "Refusing to start in production:" + bullet + bullet.join(problems)
+            )
 
 
 @lru_cache

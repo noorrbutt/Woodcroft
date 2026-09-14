@@ -364,7 +364,7 @@ def update_order_status(
             db, template, recipient, user=order.user, order_id=order.id,
             context={
                 "order_number": order.order_number,
-                "order_url": f"http://localhost:5173/account/orders/{order.order_number}",
+                "order_url": f"{settings.PUBLIC_URL}/account/orders/{order.order_number}",
                 "courier": order.courier.label if order.courier else "our courier",
                 "tracking_number": payload.tracking_number,
                 "reason": payload.note,
