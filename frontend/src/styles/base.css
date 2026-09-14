@@ -13,6 +13,12 @@
     scroll-behavior: smooth;
   }
 
+  html, body {
+    /* A stray wide element clips instead of making the whole
+       page scroll sideways, which reads as broken on a phone. */
+    overflow-x: clip;
+  }
+
   body {
     margin: 0;
     background: var(--wc-canvas);

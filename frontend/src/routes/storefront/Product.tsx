@@ -61,7 +61,7 @@ function Gallery({ product }: { product: ProductDetail }) {
       )}
 
       <div
-        className="relative flex-1 overflow-hidden bg-sunken"
+        className="relative min-w-0 flex-1 overflow-hidden bg-sunken"
         style={{ aspectRatio: '4 / 5' }}
         onMouseEnter={() => setZoom(true)}
         onMouseLeave={() => setZoom(false)}
