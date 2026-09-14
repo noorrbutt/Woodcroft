@@ -12,6 +12,7 @@ at most.
 
 from __future__ import annotations
 
+import logging
 import secrets
 import string
 import uuid
@@ -22,7 +23,6 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.errors import (
-    AccountLockedError,
     AuthenticationError,
     EmailAlreadyRegisteredError,
     InvalidCredentialsError,
@@ -49,6 +49,8 @@ from app.models.identity import (
     User,
 )
 from app.models.promotion import LoyaltyAccount
+
+log = logging.getLogger("woodcroft.auth")
 
 REFERRAL_ALPHABET = string.ascii_uppercase + string.digits
 
@@ -182,12 +184,15 @@ def authenticate(db: Session, *, email: str, password: str) -> User:
         hash_password(password)
         raise InvalidCredentialsError()
 
+    # A locked or deactivated account returns the same "invalid credentials" as
+    # a wrong password, so login cannot be used to discover which addresses have
+    # accounts or which are locked. The real reason is logged, not returned.
     if user.is_locked:
-        raise AccountLockedError(
-            "Too many failed attempts. Try again in a few minutes."
-        )
+        log.info("login refused, account locked: %s", user.id)
+        raise InvalidCredentialsError()
     if not user.is_active or user.deactivated_at is not None:
-        raise AuthenticationError("This account has been deactivated.")
+        log.info("login refused, account inactive: %s", user.id)
+        raise InvalidCredentialsError()
     if user.password_hash is None or not verify_password(password, user.password_hash):
         user.failed_login_count += 1
         if user.failed_login_count >= settings.MAX_FAILED_LOGINS:
@@ -394,13 +399,23 @@ def reset_password(db: Session, raw_token: str, new_password: str) -> User:
     return user
 
 
-def change_password(db: Session, user: User, current: str, new: str) -> None:
+def change_password(
+    db: Session,
+    user: User,
+    current: str,
+    new: str,
+    *,
+    keep_session_id: uuid.UUID | None = None,
+) -> None:
     if user.password_hash is None or not verify_password(current, user.password_hash):
         raise ValidationError(
             "Your current password is incorrect.",
             details={"fields": {"current_password": "Incorrect"}},
         )
     user.password_hash = hash_password(new)
+    # Someone changing their password often does so because they fear a session
+    # is compromised. Sign every other device out, matching reset_password.
+    revoke_all_sessions(db, user.id, except_session_id=keep_session_id)
 
 
 # ── Guest identity ───────────────────────────────────────────────────────────

@@ -12,17 +12,26 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.core.config import settings
+from app.core.security import decode_token
 
 
 def _identify(request) -> str:
     """Rate limit per user when signed in, per IP otherwise.
 
-    Keying auth endpoints purely on IP would let one office network lock itself
-    out, and would let an attacker rotating IPs through a proxy pool bypass it.
+    The token is decoded and keyed on its subject. The old code keyed on the
+    first 32 characters of the bearer string, which for every HS256 token this
+    app issues are the identical header segment, so every signed-in request
+    shared one bucket, and an attacker could send a random bearer per request to
+    land in a fresh bucket and defeat the login limiter entirely. An invalid or
+    absent token falls back to the peer address.
     """
     auth = request.headers.get("authorization", "")
     if auth.lower().startswith("bearer "):
-        return f"token:{auth[7:][:32]}"
+        try:
+            payload = decode_token(auth[7:].strip(), expected_type="access")
+            return f"user:{payload['sub']}"
+        except Exception:
+            pass
     return get_remote_address(request)
 
 

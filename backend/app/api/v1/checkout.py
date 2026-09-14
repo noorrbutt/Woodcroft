@@ -94,7 +94,9 @@ class AddressIn(BaseModel):
 
 
 class QuoteIn(BaseModel):
-    lines: list[CartLineIn]
+    # Bounded so an anonymous caller cannot post 100,000 lines and make the
+    # pricing engine and the IN(...) queries chew the whole connection pool.
+    lines: list[CartLineIn] = Field(max_length=50)
     province: PakistanProvince | None = None
     coupon_code: str | None = None
     payment_method: PaymentMethodCode = PaymentMethodCode.COD
@@ -493,7 +495,10 @@ def _quote_out(priced, meta, extra) -> QuoteOut:
 
 # ── Endpoints ────────────────────────────────────────────────────────────────
 @router.post("/checkout/quote", response_model=QuoteOut)
-def quote_cart(payload: QuoteIn, db: DbSession, user: OptionalUser) -> QuoteOut:
+@limiter.limit(settings.RATE_LIMIT_CHECKOUT)
+def quote_cart(
+    request: Request, payload: QuoteIn, db: DbSession, user: OptionalUser
+) -> QuoteOut:
     """Price a cart without placing anything. Safe to call on every change."""
     priced, meta, extra = _build_quote(db, payload, user)
     return _quote_out(priced, meta, extra)

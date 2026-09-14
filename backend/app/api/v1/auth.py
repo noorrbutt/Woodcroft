@@ -101,6 +101,7 @@ def login(request: Request, payload: LoginRequest, db: DbSession) -> AuthRespons
 
 
 @router.post("/refresh", response_model=TokenPair)
+@limiter.limit("30/minute")
 def refresh_tokens(request: Request, payload: RefreshRequest, db: DbSession) -> TokenPair:
     _, access, refresh = auth_service.rotate_refresh_token(
         db,
@@ -156,7 +157,8 @@ def revoke_session(session_id: uuid.UUID, user: CurrentUser, db: DbSession) -> M
 
 
 @router.post("/verify-email", response_model=Message)
-def verify_email(payload: VerifyEmailRequest, db: DbSession) -> Message:
+@limiter.limit(settings.RATE_LIMIT_PASSWORD_RESET)
+def verify_email(request: Request, payload: VerifyEmailRequest, db: DbSession) -> Message:
     auth_service.verify_email(db, payload.token)
     return Message(message="Your email address is confirmed.")
 
@@ -210,7 +212,10 @@ def forgot_password(
 
 
 @router.post("/reset-password", response_model=Message)
-def reset_password(payload: ResetPasswordRequest, db: DbSession) -> Message:
+@limiter.limit(settings.RATE_LIMIT_PASSWORD_RESET)
+def reset_password(
+    request: Request, payload: ResetPasswordRequest, db: DbSession
+) -> Message:
     user = auth_service.reset_password(db, payload.token, payload.password)
     notifications.email(db, "password_changed", user.email, user=user)
     return Message(message="Your password has been reset. Please sign in.")

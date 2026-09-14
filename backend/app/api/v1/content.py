@@ -9,13 +9,14 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, Query, Request, status
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.core.deps import CurrentShopper, CurrentUser, DbSession, OptionalUser
+from app.core.ratelimit import limiter
 from app.core.errors import NotFoundError, ValidationError
 from app.models.cart import WishlistItem
 from app.models.catalog import Product, ProductTag
@@ -278,7 +279,10 @@ def list_testimonials(db: DbSession) -> list[TestimonialOut]:
 
 # ── Contact and newsletter ───────────────────────────────────────────────────
 @router.post("/contact", response_model=Message, status_code=status.HTTP_201_CREATED)
-def contact(payload: ContactIn, db: DbSession, user: OptionalUser) -> Message:
+@limiter.limit("3/minute")
+def contact(
+    request: Request, payload: ContactIn, db: DbSession, user: OptionalUser
+) -> Message:
     seq = db.scalar(select(ticket_number_seq.next_value()))
     ticket = SupportTicket(
         ticket_number=f"WC-TKT-{seq + 999:06d}",
@@ -302,15 +306,20 @@ def contact(payload: ContactIn, db: DbSession, user: OptionalUser) -> Message:
 
 
 @router.post("/newsletter", response_model=Message)
-def subscribe(payload: NewsletterIn, db: DbSession) -> Message:
+@limiter.limit("3/minute")
+def subscribe(request: Request, payload: NewsletterIn, db: DbSession) -> Message:
+    # One identical reply in every branch, so the endpoint cannot be used to test
+    # whether an address is already a subscriber.
+    uniform = Message(
+        message="Thank you. If this is a new address, a 10% code is on its way."
+    )
     existing = db.scalar(
         select(NewsletterSubscriber).where(NewsletterSubscriber.email == payload.email)
     )
     if existing is not None:
         if existing.unsubscribed_at is not None:
             existing.unsubscribed_at = None
-            return Message(message="Welcome back. You are subscribed again.")
-        return Message(message="You are already on the list.")
+        return uniform
 
     db.add(NewsletterSubscriber(
         email=payload.email,
@@ -325,7 +334,7 @@ def subscribe(payload: NewsletterIn, db: DbSession) -> Message:
         context={"coupon_code": "WELCOME10", "discount_percent": 10,
                  "shop_url": f"{settings.PUBLIC_URL}/shop"},
     )
-    return Message(message="Thank you. Check your email for your 10% code.")
+    return uniform
 
 
 # ── Addresses ────────────────────────────────────────────────────────────────
@@ -480,11 +489,19 @@ def add_to_wishlist(product_id: uuid.UUID, db: DbSession, shopper: CurrentShoppe
 def remove_from_wishlist(
     product_id: uuid.UUID, db: DbSession, shopper: CurrentShopper
 ) -> Message:
-    condition = (
-        WishlistItem.user_id == shopper.user_id
-        if shopper.user_id
-        else WishlistItem.guest_session_id == shopper.guest_session_id
-    )
+    # Without this guard an anonymous caller (no user, no guest token) falls into
+    # the guest branch as "guest_session_id IS NULL", which also matches every
+    # signed-in user's rows, and deletes one of theirs.
+    if not shopper.exists:
+        return Message(message="Removed from your wishlist.")
+
+    if shopper.user_id:
+        condition = WishlistItem.user_id == shopper.user_id
+    else:
+        condition = and_(
+            WishlistItem.user_id.is_(None),
+            WishlistItem.guest_session_id == shopper.guest_session_id,
+        )
     item = db.scalar(
         select(WishlistItem).where(WishlistItem.product_id == product_id, condition)
     )

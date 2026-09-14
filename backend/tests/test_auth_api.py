@@ -154,12 +154,16 @@ class TestLogin:
                 LOGIN, json={"email": "ayesha@woodcroft.pk", "password": "nope-nope-1"}
             )
 
-        # Even the correct password is refused while the account is locked.
+        # Even the correct password is refused while the account is locked, and
+        # the response is the same invalid_credentials as any wrong password, so
+        # login cannot be used to discover that an account exists and is locked.
         r = client.post(
             LOGIN, json={"email": "ayesha@woodcroft.pk", "password": "walnut-table-8"}
         )
         assert r.status_code == 401
-        assert r.json()["error"]["code"] == "account_locked"
+        assert r.json()["error"]["code"] == "invalid_credentials"
+        db_user = db.scalar(select(User).where(User.email == "ayesha@woodcroft.pk"))
+        assert db_user.is_locked
 
     def test_successful_login_clears_failure_count(self, client, db) -> None:
         _register(client)
