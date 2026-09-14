@@ -19,7 +19,6 @@ import uuid
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
 from email.message import EmailMessage
-from pathlib import Path
 from typing import Any
 
 from jinja2 import FileSystemLoader, select_autoescape

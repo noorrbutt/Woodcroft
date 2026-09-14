@@ -3,21 +3,19 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime, timedelta
-from typing import Annotated
+from datetime import UTC, datetime
 
 import jwt
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Request, status
 
 from app.core.config import settings
 from app.core.deps import (
     CurrentUser,
     DbSession,
     client_ip,
-    get_current_user,
     user_agent,
 )
-from app.core.errors import AuthenticationError, NotFoundError
+from app.core.errors import NotFoundError
 from app.core.ratelimit import limiter
 from app.core.security import decode_token
 from app.models.identity import NotificationPreference

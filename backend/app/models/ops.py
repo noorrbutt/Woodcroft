@@ -39,7 +39,6 @@ from app.models.enums import (
     JobStatus,
     NotificationChannel,
     NotificationStatus,
-    PakistanProvince,
 )
 
 

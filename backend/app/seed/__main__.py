@@ -57,9 +57,8 @@ def reset_schema() -> None:
     Faster and more reliable than deleting rows in dependency order, and it
     guarantees the result matches the models exactly.
     """
-    from app.db.base import Base
-
     import app.models  # noqa: F401
+    from app.db.base import Base
 
     _guard_destructive()
 
@@ -75,9 +74,10 @@ def reset_schema() -> None:
     # rather than trying to recreate tables that already exist. Anchored on the
     # backend directory, not the media path, which may be an unrelated mounted
     # volume in production.
-    from app.core.config import BACKEND_DIR
-    from alembic import command
     from alembic.config import Config
+
+    from alembic import command
+    from app.core.config import BACKEND_DIR
 
     cfg = Config(str(BACKEND_DIR / "alembic.ini"))
     cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
@@ -170,7 +170,7 @@ def main() -> int:
     elapsed = time.perf_counter() - started
     print(f"\nDone in {elapsed:.1f}s\n")
     print("Sign in with:")
-    for email, name, role, password in DEMO_ACCOUNTS:
+    for email, _name, role, password in DEMO_ACCOUNTS:
         print(f"  {role.value:9} {email:26} {password}")
     print()
     print("  Storefront  http://localhost:5173")

@@ -258,7 +258,9 @@ def rotate_refresh_token(
     import jwt
 
     try:
-        payload = decode_token(raw_refresh, expected_type="refresh")
+        # Decoded for its validation side effect (signature, type, expiry); the
+        # DB lookup below keys on the token hash, not the claims.
+        decode_token(raw_refresh, expected_type="refresh")
     except jwt.PyJWTError as exc:
         raise AuthenticationError("Your session has expired. Please sign in again.") from exc
 

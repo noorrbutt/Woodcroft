@@ -15,7 +15,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from app.api.v1.admin import _csv_cell, audit
@@ -23,6 +23,7 @@ from app.core.deps import DbSession, require_permission
 from app.core.errors import NotFoundError, ValidationError
 from app.core.money import format_pkr, paisa_to_rupees, rupees_to_paisa
 from app.core.permissions import Permission
+from app.core.sanitize import clean_html
 from app.models.catalog import Category, Product, ProductVariant
 from app.models.content import (
     Banner,
@@ -32,7 +33,6 @@ from app.models.content import (
     StaticPage,
     SupportMessage,
     SupportTicket,
-    Testimonial,
 )
 from app.models.enums import (
     DiscountKind,
@@ -45,10 +45,9 @@ from app.models.enums import (
 )
 from app.models.identity import User
 from app.models.inventory import StockLevel, StockMovement
-from app.models.order import Order, OrderItem, ReturnItem, ReturnRequest
+from app.models.order import Order, OrderItem, ReturnRequest
 from app.models.promotion import Coupon, CouponRedemption, GiftCard, GiftCardTransaction
 from app.schemas.common import Message
-from app.core.sanitize import clean_html
 from app.services import notifications
 from app.services.order_ops import assert_return_transition, record_payment_refund
 

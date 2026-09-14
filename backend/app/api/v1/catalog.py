@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import uuid
-from decimal import Decimal
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
@@ -14,7 +13,6 @@ from app.core.errors import NotFoundError
 from app.models.catalog import (
     Category,
     Product,
-    ProductQuestion,
     ProductVariant,
     RecentlyViewed,
 )

@@ -32,7 +32,7 @@ from app.models.enums import (
     ReturnStatus,
 )
 from app.models.inventory import StockLevel, StockMovement
-from app.models.order import Order, Payment, PaymentTransaction, Refund
+from app.models.order import Order, Payment, PaymentTransaction
 from app.models.promotion import (
     Coupon,
     CouponRedemption,

@@ -5,10 +5,12 @@ autogenerate or ``create_all`` runs. Import order does not matter because
 relationships are resolved lazily by string name.
 """
 
-from app.models.sequences import (  # noqa: F401
-    order_number_seq,
-    return_number_seq,
-    ticket_number_seq,
+from app.models.cart import (  # noqa: F401
+    AbandonedCart,
+    Cart,
+    CartItem,
+    SavedForLater,
+    WishlistItem,
 )
 from app.models.catalog import (  # noqa: F401
     BackInStockSubscription,
@@ -28,17 +30,42 @@ from app.models.catalog import (  # noqa: F401
     Tag,
     VariantOptionValue,
 )
-from app.models.cart import (  # noqa: F401
-    AbandonedCart,
-    Cart,
-    CartItem,
-    SavedForLater,
-    WishlistItem,
+from app.models.content import (  # noqa: F401
+    Banner,
+    BlogPost,
+    Faq,
+    NewsletterSubscriber,
+    StaticPage,
+    SupportMessage,
+    SupportTicket,
+    Testimonial,
+)
+from app.models.identity import (  # noqa: F401
+    Address,
+    EmailVerification,
+    GuestSession,
+    NotificationPreference,
+    PasswordReset,
+    RefreshToken,
+    StaffPermissionGrant,
+    User,
 )
 from app.models.inventory import (  # noqa: F401
     StockLevel,
     StockMovement,
     StockReservation,
+)
+from app.models.ops import (  # noqa: F401
+    AuditLog,
+    DataRequest,
+    JobQueue,
+    NotificationOutbox,
+    NotificationTemplate,
+    SearchQueryLog,
+    ShippingRate,
+    ShippingZone,
+    StoreSetting,
+    TaxClass,
 )
 from app.models.order import (  # noqa: F401
     Order,
@@ -52,28 +79,6 @@ from app.models.order import (  # noqa: F401
     ReturnRequest,
     Shipment,
     ShipmentItem,
-)
-from app.models.content import (  # noqa: F401
-    Banner,
-    BlogPost,
-    Faq,
-    NewsletterSubscriber,
-    StaticPage,
-    SupportMessage,
-    SupportTicket,
-    Testimonial,
-)
-from app.models.ops import (  # noqa: F401
-    AuditLog,
-    DataRequest,
-    JobQueue,
-    NotificationOutbox,
-    NotificationTemplate,
-    SearchQueryLog,
-    ShippingRate,
-    ShippingZone,
-    StoreSetting,
-    TaxClass,
 )
 from app.models.promotion import (  # noqa: F401
     Bundle,
@@ -96,15 +101,10 @@ from app.models.review import (  # noqa: F401
     ReviewReport,
     ReviewVote,
 )
-from app.models.identity import (  # noqa: F401
-    Address,
-    EmailVerification,
-    GuestSession,
-    NotificationPreference,
-    PasswordReset,
-    RefreshToken,
-    StaffPermissionGrant,
-    User,
+from app.models.sequences import (  # noqa: F401
+    order_number_seq,
+    return_number_seq,
+    ticket_number_seq,
 )
 
 __all__ = [

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from app.core.permissions import DEFAULT_STAFF_PERMISSIONS, Role
 from app.core.security import hash_password

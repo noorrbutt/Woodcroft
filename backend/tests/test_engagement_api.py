@@ -78,7 +78,6 @@ def scenario(db):
     ).scalar_one()
     db.flush()
 
-    token = TestClient(app)  # not used; login below via the shared client
     return {
         "user_id": user_id, "product_slug": "sheesham-table",
         "order_number": "WC-2026-000900", "order_item_id": str(order_item_id),

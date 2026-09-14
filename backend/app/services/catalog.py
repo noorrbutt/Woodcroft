@@ -10,7 +10,6 @@ sync.
 from __future__ import annotations
 
 import uuid
-from decimal import Decimal
 from typing import Any, Literal
 
 from sqlalchemy import Select, and_, case, func, literal, or_, select, text
@@ -19,7 +18,6 @@ from sqlalchemy.orm import Session, selectinload
 from app.models.catalog import (
     Category,
     Product,
-    ProductImage,
     ProductTag,
     ProductVariant,
     Tag,

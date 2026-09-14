@@ -15,11 +15,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.core.config import settings
-from app.core.deps import CurrentShopper, CurrentUser, DbSession, OptionalUser
-from app.core.errors import ConflictError, NotFoundError, PermissionDeniedError, ValidationError
+from app.core.deps import CurrentUser, DbSession, OptionalUser
+from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.core.money import format_pkr
-from app.models.catalog import Product, ProductAnswer, ProductQuestion
+from app.models.catalog import Product, ProductQuestion
 from app.models.enums import OrderStatus, ReviewStatus
 from app.models.order import Order, OrderItem, ReturnItem, ReturnRequest
 from app.models.review import Review, ReviewVote

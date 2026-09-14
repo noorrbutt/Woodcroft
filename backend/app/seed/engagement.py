@@ -24,8 +24,8 @@ from app.models.content import (
 )
 from app.models.enums import OrderStatus, ReviewStatus
 from app.models.inventory import StockLevel
-from app.models.order import Order, OrderItem
 from app.models.ops import AuditLog, SearchQueryLog
+from app.models.order import Order, OrderItem
 from app.models.review import Review, ReviewReply, ReviewVote
 
 REVIEW_TITLES = [

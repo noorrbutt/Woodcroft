@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DatabaseError, IntegrityError
 
 
 @pytest.fixture
@@ -73,7 +73,7 @@ class TestAvailableIsGenerated:
     def test_available_cannot_be_written_directly(self, raw, variant_id) -> None:
         """One definition of sellable quantity, and no way to contradict it."""
         _stock(raw, variant_id)
-        with pytest.raises(Exception):
+        with pytest.raises(DatabaseError):
             raw.execute(
                 text("UPDATE stock_level SET available = 999 WHERE variant_id = :v"),
                 {"v": variant_id},

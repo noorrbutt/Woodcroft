@@ -12,14 +12,13 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Query, Request, status
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy import and_, func, select
-from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.core.deps import CurrentShopper, CurrentUser, DbSession, OptionalUser
-from app.core.ratelimit import limiter
 from app.core.errors import NotFoundError, ValidationError
+from app.core.ratelimit import limiter
 from app.models.cart import WishlistItem
-from app.models.catalog import Product, ProductTag
+from app.models.catalog import Product
 from app.models.content import (
     Banner,
     BlogPost,

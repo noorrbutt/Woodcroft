@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import secrets
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Query, Request, status
@@ -19,7 +19,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
-from app.core.deps import CurrentUser, DbSession, OptionalUser, client_ip
+from app.core.deps import CurrentUser, DbSession, OptionalUser
 from app.core.errors import (
     CartEmptyError,
     CodNotAvailableError,
@@ -31,12 +31,11 @@ from app.core.errors import (
 )
 from app.core.money import format_pkr
 from app.core.ratelimit import limiter
-from app.models.catalog import PersonalizationOption, Product, ProductVariant
+from app.models.catalog import Product, ProductVariant
 from app.models.enums import (
     Courier,
     GiftCardStatus,
     MovementReason,
-    NotificationChannel,
     OrderStatus,
     PakistanProvince,
     PaymentMethodCode,
@@ -45,6 +44,7 @@ from app.models.enums import (
 )
 from app.models.identity import User
 from app.models.inventory import StockLevel, StockMovement
+from app.models.ops import ShippingZone, StoreSetting
 from app.models.order import (
     Order,
     OrderEvent,
@@ -52,9 +52,8 @@ from app.models.order import (
     Payment,
     PaymentMethod,
 )
-from app.models.sequences import order_number_seq
-from app.models.ops import ShippingRate, ShippingZone, StoreSetting
 from app.models.promotion import Coupon, CouponRedemption, GiftCard, GiftCardTransaction
+from app.models.sequences import order_number_seq
 from app.schemas.common import Message, Money, Schema
 from app.services import notifications
 from app.services.auth import normalise_phone

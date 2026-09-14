@@ -9,7 +9,6 @@ quietly wrong while looking perfectly plausible.
 
 from __future__ import annotations
 
-import uuid
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
@@ -27,7 +26,7 @@ from app.models.enums import (
     ShipmentStatus,
     TaxMode,
 )
-from app.models.identity import Address, User
+from app.models.identity import Address
 from app.models.inventory import StockLevel, StockMovement
 from app.models.order import (
     Order,

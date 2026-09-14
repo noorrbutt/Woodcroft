@@ -24,8 +24,9 @@ import asyncio
 import logging
 import os
 import socket
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
-from typing import Any, Callable
+from typing import Any
 
 from sqlalchemy import select, text, update
 from sqlalchemy.orm import Session

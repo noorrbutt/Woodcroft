@@ -1,0 +1,22 @@
+# Explicit, curated lint rules so CI is meaningful and stable rather than
+# tracking whatever ruff's defaults become. High-signal rule groups only.
+target-version = "py312"
+line-length = 100
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes (real bugs: unused imports/vars, undefined names)
+    "I",   # import sorting
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+]
+ignore = [
+    "B008",   # function call in default argument: required by FastAPI's Depends()
+    "E501",   # line length is enforced by the formatter, not the linter
+    "UP046",  # PEP 695 generics rewrite is finicky with Pydantic generic models
+]
+
+[lint.per-file-ignores]
+# Migrations are generated and intentionally verbose.
+"alembic/versions/*" = ["E", "I"]

@@ -10,14 +10,13 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import and_, func, select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.cart import AbandonedCart, Cart
 from app.models.catalog import BackInStockSubscription, PriceWatch, Product, ProductVariant
 from app.models.enums import (
-    NotificationChannel,
     NotificationStatus,
     ProductStatus,
     ReservationStatus,
@@ -217,7 +216,6 @@ def send_review_reminders(db: Session, payload: dict[str, Any]) -> None:
     """Ask for a review a while after delivery, once per order."""
     from app.models.review import Review
     from app.services import notifications
-    from app.workers.runner import enqueue
 
     days = payload.get("days_after_delivery", 7)
     window_start = _now() - timedelta(days=days + 1)

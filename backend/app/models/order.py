@@ -40,7 +40,6 @@ from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import BaseModel
-from app.models.identity import User
 from app.models.enums import (
     Courier,
     OrderStatus,
@@ -52,6 +51,7 @@ from app.models.enums import (
     ShipmentStatus,
     TaxMode,
 )
+from app.models.identity import User
 
 
 def _enum(py_enum: type, name: str) -> SAEnum:
@@ -155,7 +155,7 @@ class Order(BaseModel):
 
     #: The account that placed this order, when it was not a guest checkout.
     #: Read-only from the order's side: an order never edits a customer.
-    user: Mapped["User | None"] = relationship(
+    user: Mapped[User | None] = relationship(
         "User", lazy="joined", viewonly=True
     )
     items: Mapped[list[OrderItem]] = relationship(

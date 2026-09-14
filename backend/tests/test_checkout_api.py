@@ -15,8 +15,8 @@ from sqlalchemy import text
 from app.core.deps import get_db
 from app.main import app
 from app.models.enums import PaymentMethodCode
-from app.models.order import PaymentMethod
 from app.models.ops import ShippingZone, StoreSetting
+from app.models.order import PaymentMethod
 
 
 @pytest.fixture

@@ -10,20 +10,20 @@ from __future__ import annotations
 import csv
 import io
 import uuid
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
 from pydantic import BaseModel, Field
-from sqlalchemy import String, and_, case, cast, func, or_, select, update
+from sqlalchemy import String, and_, cast, func, or_, select, update
 from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
-from app.core.deps import DbSession, StaffUser, require_permission
+from app.core.deps import DbSession, require_permission
 from app.core.errors import NotFoundError, ValidationError
 from app.core.money import format_pkr, paisa_to_rupees
 from app.core.permissions import Permission
-from app.models.catalog import Category, Product, ProductImage, ProductVariant
+from app.models.catalog import Product, ProductImage, ProductVariant
 from app.models.content import SupportTicket
 from app.models.enums import (
     MovementReason,
@@ -36,6 +36,7 @@ from app.models.enums import (
 )
 from app.models.identity import User
 from app.models.inventory import StockLevel, StockMovement
+from app.models.ops import AuditLog, NotificationOutbox, SearchQueryLog, StoreSetting
 from app.models.order import (
     Order,
     OrderEvent,
@@ -43,10 +44,7 @@ from app.models.order import (
     Refund,
     ReturnRequest,
     Shipment,
-    ShipmentItem,
 )
-from app.models.ops import AuditLog, NotificationOutbox, SearchQueryLog, StoreSetting
-from app.models.promotion import Coupon
 from app.models.review import Review, ReviewReply
 from app.schemas.common import Message, Money, Page, Schema
 from app.services import notifications
