@@ -91,9 +91,13 @@ function FilterPanel({
         <h3 className="wc-eyebrow mb-3">Price</h3>
         <div className="space-y-2">
           {PRICE_BANDS.map((band) => {
+            // A band with no min ("Under Rs 10,000") or no max ("Over Rs
+            // 150,000") compares against ''. params.get() returns null when the
+            // key is absent, and null === '' is false, so those two bands never
+            // read as checked while applied. Coalesce both sides to ''.
             const active =
-              params.get('min_price') === String(band.min ?? '') &&
-              params.get('max_price') === String(band.max ?? '')
+              (params.get('min_price') ?? '') === String(band.min ?? '') &&
+              (params.get('max_price') ?? '') === String(band.max ?? '')
             return (
               <Checkbox
                 key={band.label}
