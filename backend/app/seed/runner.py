@@ -527,14 +527,22 @@ class Seeder:
 
     def _make_images(self, product: Product, wood: WoodSpecies,
                      media_root, write_plate, subcategory: str) -> None:
-        # One honest, on-brand placeholder card per product, labelled with the
-        # piece and its wood. Real photography is added by the admin through the
-        # image manager; a stock room scene that does not match the item (a sofa
-        # on a wardrobe) is worse than a clear placeholder.
+        # With a Pexels key, pull a real photo matched to the product type. Failing
+        # that (no key, or a fetch miss), fall back to an on-brand placeholder card
+        # labelled with the piece and wood, never a stock room scene that would
+        # misrepresent the item. The admin can replace either through the image
+        # manager or scripts/refresh_product_photos.py.
         rel = f"products/{product.slug}/0"
+        meta = None
         if self.with_images:
+            from app.services.media.pexels import api_key, write_search_photo
             from app.services.media.photos import write_placeholder
-            meta = write_placeholder(media_root, rel, wood, product.name)
+
+            key = api_key()
+            if key:
+                meta = write_search_photo(media_root, rel, subcategory, product.slug, key)
+            if meta is None:
+                meta = write_placeholder(media_root, rel, wood, product.name)
         else:
             meta = {
                 "base_path": rel, "sizes": [400, 800, 1600],

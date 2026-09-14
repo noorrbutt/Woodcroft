@@ -34,7 +34,7 @@ _UA = "WoodcroftCatalog/1.0"
 #: Each catalogue subcategory -> a plain-English search term for the exact item.
 SUBCATEGORY_QUERY: dict[str, str] = {
     "sofas-daybeds": "wooden sofa living room",
-    "coffee-tables": "wooden coffee table",
+    "coffee-tables": "wooden center table living room",
     "side-tables": "wooden side table",
     "tv-consoles": "wooden tv console media unit",
     "loungers": "wooden lounge chair",
