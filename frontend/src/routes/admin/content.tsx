@@ -99,6 +99,7 @@ export function AdminBlog() {
       toast.success(result.message)
       queryClient.invalidateQueries({ queryKey: ['admin-blog'] })
     },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Could not delete'),
   })
 
   const bind = (key: keyof typeof form) =>
@@ -141,7 +142,7 @@ export function AdminBlog() {
               <td className="px-4 py-3 text-right">
                 <button onClick={() => open(post.id)}
                         className="mr-3 text-xs text-muted hover:text-ink">Edit</button>
-                <button onClick={() => remove.mutate(post.id)}
+                <button onClick={() => { if (window.confirm('Delete this article? This cannot be undone.')) remove.mutate(post.id) }}
                         className="text-xs text-muted hover:text-[var(--wc-danger)]">
                   Delete
                 </button>
@@ -393,6 +394,7 @@ export function AdminCoupons() {
       toast.success(result.message)
       queryClient.invalidateQueries({ queryKey: ['admin-coupons'] })
     },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Could not remove'),
   })
 
   const openEdit = (coupon: any) => {
@@ -448,7 +450,7 @@ export function AdminCoupons() {
               <td className="px-4 py-3 text-right">
                 <button onClick={() => openEdit(coupon)}
                         className="mr-3 text-xs text-muted hover:text-ink">Edit</button>
-                <button onClick={() => remove.mutate(coupon.id)}
+                <button onClick={() => { if (window.confirm('Remove this coupon?')) remove.mutate(coupon.id) }}
                         className="text-xs text-muted hover:text-[var(--wc-danger)]">
                   {coupon.used_count ? 'Disable' : 'Delete'}
                 </button>
@@ -612,7 +614,7 @@ export function AdminGiftCards() {
               </td>
               <td className="px-4 py-3 text-right">
                 {card.status === 'active' && (
-                  <button onClick={() => cancel.mutate(card.id)}
+                  <button onClick={() => { if (window.confirm('Cancel this gift card? The remaining balance will be voided.')) cancel.mutate(card.id) }}
                           className="text-xs text-muted hover:text-[var(--wc-danger)]">
                     Cancel
                   </button>

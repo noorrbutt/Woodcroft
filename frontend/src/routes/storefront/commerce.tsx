@@ -324,6 +324,21 @@ export function CartPage() {
   )
 }
 
+interface SavedAddress {
+  id: string
+  label: string | null
+  full_name: string
+  phone: string
+  line1: string
+  line2: string | null
+  area: string | null
+  landmark: string | null
+  city: string
+  province: string
+  postal_code: string | null
+  is_default_shipping: boolean
+}
+
 /* ── Checkout ────────────────────────────────────────────────────────────── */
 export function CheckoutPage() {
   const navigate = useNavigate()
@@ -349,6 +364,38 @@ export function CheckoutPage() {
   const [terms, setTerms] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
+  const [prefilled, setPrefilled] = useState(false)
+
+  // Signed-in customers should not retype an address they already saved.
+  const { data: savedAddresses = [] } = useQuery({
+    queryKey: ['addresses'],
+    queryFn: () => get<SavedAddress[]>('/addresses'),
+    enabled: Boolean(user),
+  })
+
+  const applyAddress = (addr: SavedAddress) => {
+    setForm((f) => ({
+      ...f,
+      full_name: addr.full_name,
+      phone: addr.phone,
+      line1: addr.line1,
+      line2: addr.line2 ?? '',
+      area: addr.area ?? '',
+      landmark: addr.landmark ?? '',
+      city: addr.city,
+      province: addr.province as Province,
+      postal_code: addr.postal_code ?? '',
+    }))
+  }
+
+  useEffect(() => {
+    // Prefill once from the default (or first) saved address.
+    if (prefilled || savedAddresses.length === 0) return
+    const def = savedAddresses.find((a) => a.is_default_shipping) ?? savedAddresses[0]
+    if (def) applyAddress(def)
+    setPrefilled(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedAddresses, prefilled])
 
   const payload = useQuotePayload(form.province)
 
@@ -459,6 +506,26 @@ export function CheckoutPage() {
             <h2 className="mb-5 flex items-center gap-3 font-display text-xl">
               <span className="wc-numeral">02</span> Delivery address
             </h2>
+            {savedAddresses.length > 0 && (
+              <div className="mb-4">
+                <Field label="Use a saved address" id="saved-address">
+                  <Select
+                    id="saved-address"
+                    onChange={(e) => {
+                      const addr = savedAddresses.find((a) => a.id === e.target.value)
+                      if (addr) applyAddress(addr)
+                    }}
+                  >
+                    <option value="">Enter a new address</option>
+                    {savedAddresses.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.label ? `${a.label} — ` : ''}{a.line1}, {a.city}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </div>
+            )}
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Full name" id="name" error={errors['shipping.full_name']} required>
                 <Input id="name" required autoComplete="name" value={form.full_name} onChange={bind('full_name')} />

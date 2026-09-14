@@ -737,6 +737,7 @@ export function AccountAddresses() {
 
   const remove = useMutation({
     mutationFn: (id: string) => del<ApiMessage>(`/addresses/${id}`),
+    onError: () => toast.error('Could not remove that address'),
     onSuccess: () => {
       toast.success('Address removed')
       queryClient.invalidateQueries({ queryKey: ['addresses'] })
@@ -799,7 +800,9 @@ export function AccountAddresses() {
                   Edit
                 </button>
                 <button
-                  onClick={() => remove.mutate(address.id)}
+                  onClick={() => {
+                    if (window.confirm('Remove this address?')) remove.mutate(address.id)
+                  }}
                   className="flex items-center gap-1 text-muted hover:text-[var(--wc-danger)]"
                 >
                   <Trash2 size={12} strokeWidth={1.5} /> Remove
