@@ -14,7 +14,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, Request, status
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
@@ -527,6 +527,10 @@ def place_order(
     # Lock the stock rows in a stable order so concurrent checkouts queue
     # rather than deadlock against each other.
     variant_ids = sorted(str(info["variant"].id) for info in meta)
+    # populate_existing forces the locked rows to refresh their in-memory
+    # attributes. Without it SQLAlchemy hands back the same objects _build_quote
+    # already loaded, with their pre-lock values, so two checkouts racing for the
+    # last unit both read the stale "1 available" and both sell it.
     levels = {
         row.variant_id: row
         for row in db.scalars(
@@ -534,17 +538,29 @@ def place_order(
             .where(StockLevel.variant_id.in_([uuid.UUID(v) for v in variant_ids]))
             .order_by(StockLevel.variant_id)
             .with_for_update()
+            .execution_options(populate_existing=True)
         ).all()
     }
 
+    # Sum demand per variant. Two lines for the same variant (the normal case
+    # for two differently-engraved copies) must be checked against one stock
+    # figure, not each independently against the full amount.
+    needed: dict[uuid.UUID, int] = {}
+    variant_name: dict[uuid.UUID, str] = {}
     for line, info in zip(priced.lines, meta, strict=True):
-        level = levels.get(info["variant"].id)
-        if info["variant"].is_preorder:
+        variant = info["variant"]
+        if variant.is_preorder:
             continue
-        if level is None or level.available < line.quantity:
+        needed[variant.id] = needed.get(variant.id, 0) + line.quantity
+        variant_name[variant.id] = info["product"].name
+
+    for variant_id, want in needed.items():
+        level = levels.get(variant_id)
+        have = level.available if level else 0
+        if have < want:
             raise InsufficientStockError(
-                f"Only {level.available if level else 0} left of "
-                f"{info['product'].name}. Please adjust your cart."
+                f"Only {have} left of {variant_name[variant_id]}. "
+                "Please adjust your cart."
             )
 
     year = datetime.now(UTC).year
@@ -590,6 +606,11 @@ def place_order(
     db.add(order)
     db.flush()
 
+    # Accumulate sales per product and apply one relative UPDATE each after the
+    # loop. A per-line absolute write loses increments both across concurrent
+    # orders and across two lines of the same product in one order.
+    sales_by_product: dict[uuid.UUID, int] = {}
+
     for line, info in zip(priced.lines, meta, strict=True):
         product = info["product"]
         variant = info["variant"]
@@ -627,7 +648,16 @@ def place_order(
                 reason=MovementReason.SALE,
                 order_id=order.id,
             ))
-        product.sales_count = (product.sales_count or 0) + line.quantity
+        sales_by_product[product.id] = (
+            sales_by_product.get(product.id, 0) + line.quantity
+        )
+
+    for product_id, sold in sales_by_product.items():
+        db.execute(
+            update(Product)
+            .where(Product.id == product_id)
+            .values(sales_count=Product.sales_count + sold)
+        )
 
     db.add(Payment(
         order_id=order.id,

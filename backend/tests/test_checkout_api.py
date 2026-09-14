@@ -284,6 +284,43 @@ class TestPlaceOrder:
         ).scalar_one()
         assert remaining == 10
 
+    def test_two_lines_of_one_variant_are_summed_against_stock(
+        self, client, variant, db
+    ) -> None:
+        # Two engraved copies of the same variant are two lines. 6 + 6 exceeds
+        # the stock of 10; a per-line check would pass both and oversell.
+        response = self._place(
+            client, variant,
+            lines=[
+                {"variant_id": variant, "quantity": 6, "personalization": {}},
+                {"variant_id": variant, "quantity": 6, "personalization": {}},
+            ],
+        )
+        assert response.status_code == 409
+        assert response.json()["error"]["code"] == "insufficient_stock"
+        remaining = db.execute(
+            text("SELECT on_hand FROM stock_level WHERE variant_id = :v"),
+            {"v": variant},
+        ).scalar_one()
+        assert remaining == 10
+
+    def test_two_lines_that_fit_are_both_deducted(
+        self, client, variant, db
+    ) -> None:
+        response = self._place(
+            client, variant,
+            lines=[
+                {"variant_id": variant, "quantity": 6, "personalization": {}},
+                {"variant_id": variant, "quantity": 4, "personalization": {}},
+            ],
+        )
+        assert response.status_code == 201, response.text
+        remaining = db.execute(
+            text("SELECT on_hand FROM stock_level WHERE variant_id = :v"),
+            {"v": variant},
+        ).scalar_one()
+        assert remaining == 0
+
     def test_terms_must_be_accepted(self, client, variant) -> None:
         response = self._place(client, variant, accept_terms=False)
         assert response.status_code == 422
