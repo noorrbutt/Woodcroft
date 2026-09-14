@@ -39,8 +39,10 @@ from app.services.media.pexels import api_key
 _CTX = ssl.create_default_context()
 _UA = "WoodcroftCatalog/1.0"
 
-# Hand-picked, vetted Pexels photo ids with a keyword fallback each.
-HERO = (5711877, "carpenter woodworking hand tools chisel")
+# Hand-picked, vetted Pexels photo ids with a keyword fallback each. The hero is
+# a warm, sunlit room with a wooden dresser and armchair; the golden light keeps
+# it rich (not washed) and there is clean wall on the left for the headline.
+HERO = (10780943, "warm sunlit room wooden dresser chair interior")
 STORY = (313776, "carpenter planing wood workshop")
 CATEGORIES: dict[str, tuple[int, str]] = {
     "living": (39134599, "wooden sofa living room interior"),
@@ -125,10 +127,13 @@ def main() -> int:
     if not root.exists():
         root = Path("media")
 
-    # Hero (dark hand-tool workshop), 16:9.
+    # Hero (bright showroom still), 16:9, flipped so the piece reads on the right.
     hero = _fetch(*HERO, key, "landscape")
     if hero is not None:
-        _write(_crop(hero, 16 / 9), root / "hero" / "workshop", (800, 1600, 2400))
+        from PIL import Image as _Image
+
+        hero = hero.transpose(_Image.FLIP_LEFT_RIGHT)
+        _write(_crop(hero, 16 / 9), root / "hero" / "showroom", (800, 1600, 2400))
         print("hero: ok")
     else:
         print("hero: FAILED (kept existing)")

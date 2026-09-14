@@ -26,58 +26,66 @@ function Hero() {
   const ref = useReveal<HTMLDivElement>()
   return (
     <section
-      className="relative overflow-hidden bg-inverse text-on-inverse"
-      /* svh, not vh: 100vh jumps by about 60px on mobile Safari when the URL
-         bar collapses, which reads as a broken page on the most important
-         screen in the whole site. */
-      style={{ minHeight: 'min(90svh, 900px)' }}
+      className="relative overflow-hidden"
+      /* A bright, art-directed showroom band: the piece sits on the right, the
+         headline on the clean left. Fixed light in both themes, so its dark
+         text uses fixed walnut tokens rather than theme-flipping ones.
+         svh, not vh: 100vh jumps ~60px on mobile Safari when the URL bar
+         collapses, which reads as a broken hero. */
+      style={{ minHeight: 'min(82svh, 820px)', background: 'var(--walnut-50)' }}
     >
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0">
         <img
-          src="/media/hero/workshop_2400.webp"
-          srcSet="/media/hero/workshop_800.webp 800w, /media/hero/workshop_1600.webp 1600w, /media/hero/workshop_2400.webp 2400w"
+          src="/media/hero/showroom_2400.webp"
+          srcSet="/media/hero/showroom_800.webp 800w, /media/hero/showroom_1600.webp 1600w, /media/hero/showroom_2400.webp 2400w"
           sizes="100vw"
           alt=""
           aria-hidden
           fetchPriority="high"
-          className="wc-kenburns size-full object-cover opacity-75"
+          /* Bias slightly right so the chair and dresser stay in frame on the
+             tighter phone crop; recentre on wider screens. */
+          className="wc-kenburns size-full object-cover [object-position:62%_center] sm:object-center"
         />
-        {/* Warm walnut scrim, darkest on the left where the text sits and
-            opening to the right so the grain and tools read. Never neutral
-            black — walnut-900 is rgb(31 22 16). */}
+        {/* A gentle WARM wash on the left so the dark headline reads, tuned low
+            and narrow so the golden light and wood stay rich, never washed pale.
+            Warm-toned (not bone-white) to keep the photo's colour. */}
         <div
           className="absolute inset-0"
+          aria-hidden
           style={{
             background:
-              'linear-gradient(102deg, rgb(31 22 16 / 0.86) 0%, rgb(31 22 16 / 0.66) 40%, rgb(31 22 16 / 0.28) 74%, rgb(31 22 16 / 0.45) 100%)',
+              'linear-gradient(96deg, rgb(244 234 216 / 0.80) 0%, rgb(244 234 216 / 0.5) 24%, rgb(244 234 216 / 0.16) 42%, transparent 58%)',
           }}
         />
-        {/* Settle the hero into the page below instead of a hard cut. */}
+        {/* Phone-only top wash: the copy stacks over the upper frame there. */}
         <div
-          className="absolute inset-x-0 bottom-0 h-24"
-          style={{ background: 'linear-gradient(to bottom, transparent, var(--wc-canvas))' }}
+          className="absolute inset-0 sm:hidden"
           aria-hidden
+          style={{
+            background:
+              'linear-gradient(to bottom, rgb(244 234 216 / 0.82) 0%, rgb(244 234 216 / 0.42) 32%, transparent 58%)',
+          }}
         />
       </div>
 
       <div
         ref={ref}
         className="wc-container wc-reveal relative flex flex-col justify-center"
-        style={{ minHeight: 'min(90svh, 900px)' }}
+        style={{ minHeight: 'min(82svh, 820px)' }}
       >
-        <div className="wc-reveal-stagger max-w-2xl py-24">
+        <div className="wc-reveal-stagger max-w-xl py-20">
           <div className="mb-6 flex items-center gap-3" style={step(0)}>
-            <span className="wc-numeral !text-[var(--brass-300)]">EST 2002</span>
-            <span className="h-px w-12 bg-[var(--brass-400)]" aria-hidden />
-            <span className="wc-eyebrow !text-[var(--walnut-200)]">Karachi</span>
+            <span className="wc-numeral !text-[var(--brass-600)]">EST 2002</span>
+            <span className="h-px w-12 bg-[var(--brass-500)]" aria-hidden />
+            <span className="wc-eyebrow !text-[var(--walnut-600)]">Karachi</span>
           </div>
 
-          <h1 className="text-balance text-[var(--walnut-50)]" style={step(1)}>
+          <h1 className="text-balance text-[var(--walnut-900)]" style={step(1)}>
             Made to be kept.
           </h1>
 
           <p
-            className="mt-6 max-w-lg text-base leading-relaxed text-[var(--walnut-200)]"
+            className="mt-6 max-w-lg text-base leading-relaxed text-[var(--walnut-700)]"
             style={step(2)}
           >
             Solid sheesham, walnut and teak, cut and joined by hand. No veneer,
@@ -85,12 +93,15 @@ function Hero() {
           </p>
 
           <div className="mt-10 flex flex-wrap gap-3" style={step(3)}>
-            <Link to="/shop" className="wc-btn wc-btn-brass wc-btn-lg">
+            <Link
+              to="/shop"
+              className="wc-btn wc-btn-lg bg-[var(--walnut-900)] text-[var(--walnut-50)] transition-[filter,transform,box-shadow] hover:-translate-y-px hover:brightness-125 hover:shadow-[var(--wc-shadow-md)]"
+            >
               Explore the collection
             </Link>
             <Link
               to="/collections/bespoke"
-              className="wc-btn wc-btn-lg border border-[var(--walnut-400)] text-[var(--walnut-100)] hover:bg-white/5"
+              className="wc-btn wc-btn-lg border border-[var(--walnut-400)] text-[var(--walnut-800)] hover:bg-[color-mix(in_srgb,var(--walnut-900)_6%,transparent)]"
             >
               Commission a piece
             </Link>
