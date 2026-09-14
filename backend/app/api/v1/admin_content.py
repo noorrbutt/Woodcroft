@@ -39,6 +39,7 @@ from app.models.enums import (
     DiscountTarget,
     GiftCardStatus,
     MovementReason,
+    OrderStatus,
     ProductStatus,
     ReturnStatus,
 )
@@ -48,6 +49,7 @@ from app.models.order import Order, OrderItem, ReturnItem, ReturnRequest
 from app.models.promotion import Coupon, CouponRedemption, GiftCard, GiftCardTransaction
 from app.schemas.common import Message
 from app.services import notifications
+from app.services.order_ops import assert_return_transition, record_payment_refund
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -771,6 +773,9 @@ def admin_decide_return(
 
     now = datetime.now(UTC)
     previous = request.status
+    # Reject illegal or repeated moves. Re-entering REFUNDED is the double-payout
+    # this guards against; the ledger check below is the second line of defence.
+    assert_return_transition(previous, payload.status)
     request.status = payload.status
     request.admin_note = payload.admin_note
 
@@ -781,7 +786,9 @@ def admin_decide_return(
     if payload.status in (ReturnStatus.REFUNDED, ReturnStatus.REJECTED):
         request.resolved_at = now
 
-    order = db.get(Order, request.order_id)
+    # Locked up front: the refund branch clamps against the order balance and
+    # writes a relative counter, both of which need the current row.
+    order = db.get(Order, request.order_id, with_for_update=True)
 
     # Stock only comes back when the goods physically arrive, and only if the
     # item is actually resellable. Restocking on approval would credit stock
@@ -814,10 +821,21 @@ def admin_decide_return(
     if payload.status is ReturnStatus.REFUNDED and order is not None and payload.refund:
         from app.models.order import Refund
 
+        # Idempotent: if a refund already exists for this return, do not pay out
+        # again, however many times the button is pressed.
+        already = db.scalar(
+            select(func.count())
+            .select_from(Refund)
+            .where(Refund.return_request_id == request.id)
+        )
         amount = sum(i.refundable_paisa for i in request.items)
         amount = min(amount, order.total_paisa - order.refunded_paisa)
-        if amount > 0:
-            order.refunded_paisa += amount
+        if not already and amount > 0:
+            order.refunded_paisa = Order.refunded_paisa + amount
+            db.flush()
+            db.refresh(order, ["refunded_paisa"])
+            if order.refunded_paisa >= order.total_paisa:
+                order.status = OrderStatus.REFUNDED
             db.add(Refund(
                 order_id=order.id,
                 return_request_id=request.id,
@@ -827,10 +845,11 @@ def admin_decide_return(
                 processed_by_id=actor.id,
                 processed_at=now,
             ))
+            record_payment_refund(db, order, amount)
             if order.user_id:
-                customer = db.get(User, order.user_id)
+                customer = db.get(User, order.user_id, with_for_update=True)
                 if customer:
-                    customer.store_credit_paisa += amount
+                    customer.store_credit_paisa = User.store_credit_paisa + amount
 
     recipient = None
     if order is not None:

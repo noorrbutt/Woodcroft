@@ -50,6 +50,12 @@ from app.models.promotion import Coupon
 from app.models.review import Review, ReviewReply
 from app.schemas.common import Message, Money, Page, Schema
 from app.services import notifications
+from app.services.order_ops import (
+    assert_order_transition,
+    credit_loyalty_on_delivery,
+    record_payment_refund,
+    reverse_order,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -297,12 +303,17 @@ def update_order_status(
     actor: Annotated[User, Depends(require_permission(Permission.ORDER_UPDATE_STATUS))],
 ) -> Message:
     order = db.scalar(
-        select(Order).where(Order.id == order_id).options(selectinload(Order.items))
+        select(Order)
+        .where(Order.id == order_id)
+        .options(selectinload(Order.items), selectinload(Order.payments))
     )
     if order is None:
         raise NotFoundError("Order not found.")
 
     previous = order.status
+    # A real state machine: this rejects delivered->cancelled, refunded->shipped,
+    # and setting the same status twice, so cancelling can never restock twice.
+    assert_order_transition(previous, payload.status)
     order.status = payload.status
     now = datetime.now(UTC)
 
@@ -310,30 +321,13 @@ def update_order_status(
         order.confirmed_at = now
     if payload.status is OrderStatus.DELIVERED:
         order.delivered_at = now
+        # Points promised at checkout are only credited now, once, on delivery.
+        credit_loyalty_on_delivery(db, order)
     if payload.status is OrderStatus.CANCELLED:
         order.cancelled_at = now
         order.cancellation_reason = payload.note or "Cancelled by staff"
-        # Cancelling returns the stock, and says so in the ledger.
-        for item in order.items:
-            if item.variant_id is None:
-                continue
-            level = db.scalar(
-                select(StockLevel)
-                .where(StockLevel.variant_id == item.variant_id)
-                .with_for_update()
-            )
-            if level is None:
-                continue
-            level.on_hand += item.quantity
-            db.add(StockMovement(
-                variant_id=item.variant_id,
-                delta=item.quantity,
-                balance_after=level.on_hand,
-                reason=MovementReason.CANCELLATION,
-                order_id=order.id,
-                actor_id=actor.id,
-                note=f"Order {order.order_number} cancelled",
-            ))
+        # Full reversal: stock, redeemed loyalty, coupon, sales count, payment.
+        reverse_order(db, order, actor_id=actor.id)
 
     if payload.status is OrderStatus.SHIPPED and payload.tracking_number:
         db.add(Shipment(
@@ -392,7 +386,9 @@ def refund_order(
     db: DbSession,
     actor: Annotated[User, Depends(require_permission(Permission.ORDER_REFUND))],
 ) -> Message:
-    order = db.scalar(select(Order).where(Order.id == order_id))
+    # Lock the order so two overlapping refunds cannot both read the same
+    # starting balance and each write an absolute total, losing one refund.
+    order = db.scalar(select(Order).where(Order.id == order_id).with_for_update())
     if order is None:
         raise NotFoundError("Order not found.")
 
@@ -402,7 +398,9 @@ def refund_order(
             f"Only {format_pkr(remaining)} is left to refund on this order."
         )
 
-    order.refunded_paisa += payload.amount_paisa
+    order.refunded_paisa = Order.refunded_paisa + payload.amount_paisa
+    db.flush()
+    db.refresh(order, ["refunded_paisa"])
     if order.refunded_paisa >= order.total_paisa:
         order.status = OrderStatus.REFUNDED
 
@@ -414,12 +412,13 @@ def refund_order(
         processed_by_id=actor.id,
         processed_at=datetime.now(UTC),
     ))
+    record_payment_refund(db, order, payload.amount_paisa)
 
     # COD money is refunded out of band, so store credit is the honest default.
     if payload.method == "store_credit" and order.user_id:
-        customer = db.get(User, order.user_id)
+        customer = db.get(User, order.user_id, with_for_update=True)
         if customer:
-            customer.store_credit_paisa += payload.amount_paisa
+            customer.store_credit_paisa = User.store_credit_paisa + payload.amount_paisa
 
     db.add(OrderEvent(
         order_id=order.id,

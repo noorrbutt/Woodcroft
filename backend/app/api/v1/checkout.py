@@ -56,6 +56,7 @@ from app.models.promotion import Coupon, CouponRedemption
 from app.schemas.common import Message, Money, Schema
 from app.services import notifications
 from app.services.auth import normalise_phone
+from app.services.order_ops import reverse_order
 from app.services.pricing import (
     CouponInput,
     LineInput,
@@ -901,7 +902,7 @@ def cancel_order(order_number: str, db: DbSession, user: CurrentUser) -> Message
     order = db.scalar(
         select(Order)
         .where(Order.order_number == order_number, Order.user_id == user.id)
-        .options(selectinload(Order.items))
+        .options(selectinload(Order.items), selectinload(Order.payments))
     )
     if order is None:
         raise NotFoundError("We could not find that order.")
@@ -914,26 +915,9 @@ def cancel_order(order_number: str, db: DbSession, user: CurrentUser) -> Message
     order.cancelled_at = datetime.now(UTC)
     order.cancellation_reason = "Cancelled by customer"
 
-    # Put the stock back, and record why it moved.
-    for item in order.items:
-        if item.variant_id is None:
-            continue
-        level = db.scalar(
-            select(StockLevel)
-            .where(StockLevel.variant_id == item.variant_id)
-            .with_for_update()
-        )
-        if level is None:
-            continue
-        level.on_hand += item.quantity
-        db.add(StockMovement(
-            variant_id=item.variant_id,
-            delta=item.quantity,
-            balance_after=level.on_hand,
-            reason=MovementReason.CANCELLATION,
-            order_id=order.id,
-            note=f"Order {order.order_number} cancelled",
-        ))
+    # Full reversal: stock back, redeemed loyalty back, coupon released, sales
+    # count and payment undone. The same helper staff cancellation uses.
+    reverse_order(db, order, actor_id=user.id, note=f"Order {order.order_number} cancelled")
 
     db.add(OrderEvent(
         order_id=order.id,
