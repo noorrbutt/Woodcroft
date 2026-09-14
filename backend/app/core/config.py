@@ -10,9 +10,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
-
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -90,7 +88,7 @@ class Settings(BaseSettings):
     # ── Media ────────────────────────────────────────────────────────────────
     MEDIA_ROOT: str = "media"
     MEDIA_URL: str = "/media"
-    SEED_IMAGE_MODE: Literal["generated", "curated"] = "curated"
+    SEED_IMAGE_MODE: Literal["generated", "curated"] = "generated"
     UNSPLASH_ACCESS_KEY: str = ""
 
     # ── URLs ─────────────────────────────────────────────────────────────────

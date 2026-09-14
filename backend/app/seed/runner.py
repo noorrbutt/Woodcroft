@@ -17,104 +17,49 @@ lying.
 from __future__ import annotations
 
 import random
-import time
-import uuid
 from datetime import UTC, datetime, timedelta
 
 from faker import Faker
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.money import apply_bp
-from app.core.permissions import DEFAULT_STAFF_PERMISSIONS, Role
-from app.core.security import hash_password
-from app.models.cart import Cart, CartItem, WishlistItem
 from app.models.catalog import (
-    BackInStockSubscription,
     Category,
     PersonalizationOption,
     Product,
-    ProductAnswer,
     ProductImage,
     ProductOptionType,
     ProductOptionValue,
-    ProductQuestion,
     ProductTag,
     ProductVariant,
     Tag,
     VariantOptionValue,
 )
-from app.models.content import (
-    Banner,
-    BlogPost,
-    Faq,
-    NewsletterSubscriber,
-    StaticPage,
-    SupportMessage,
-    SupportTicket,
-    Testimonial,
-)
 from app.models.enums import (
     Courier,
-    DiscountKind,
-    DiscountTarget,
     MovementReason,
-    NotificationChannel,
-    OrderStatus,
     PakistanProvince,
     PaymentMethodCode,
-    PaymentStatus,
     PersonalizationInputType,
     ProductStatus,
-    ReturnReason,
-    ReturnStatus,
-    ReviewStatus,
-    ShipmentStatus,
-    TaxMode,
     WoodSpecies,
 )
-from app.models.identity import Address, NotificationPreference, User
+from app.models.identity import User
 from app.models.inventory import StockLevel, StockMovement
-from app.models.order import (
-    Order,
-    OrderEvent,
-    OrderItem,
-    Payment,
-    PaymentMethod,
-    Refund,
-    ReturnItem,
-    ReturnRequest,
-    Shipment,
-    ShipmentItem,
-)
 from app.models.ops import (
-    AuditLog,
-    SearchQueryLog,
     ShippingRate,
     ShippingZone,
     StoreSetting,
     TaxClass,
 )
+from app.models.order import (
+    PaymentMethod,
+)
 from app.models.promotion import (
     Coupon,
-    DiscountRule,
-    FlashSale,
-    FlashSaleItem,
-    GiftCard,
-    GiftCardTransaction,
-    LoyaltyAccount,
-    LoyaltyTransaction,
 )
-from app.models.review import Review, ReviewReply, ReviewVote
 from app.seed.catalog_data import CATEGORY_TREE, FINISHES, ITEMS, Item
-from app.services.pricing import (
-    CouponInput,
-    LineInput,
-    PersonalizationChoice,
-    QuoteRequest,
-    quote,
-)
 
 SEED = 20260914
 RS = 100
@@ -582,33 +527,24 @@ class Seeder:
 
     def _make_images(self, product: Product, wood: WoodSpecies,
                      media_root, write_plate, subcategory: str) -> None:
-        count = 3
-        use_photos = self.with_images and settings.SEED_IMAGE_MODE == "curated"
-        photo_ids: list[str] = []
-        if use_photos:
-            from app.services.media.photos import photo_ids_for
-            photo_ids = photo_ids_for(subcategory, product.slug, count)
-
-        for angle in range(count):
-            rel = f"products/{product.slug}/{angle}"
-            meta = None
-            # Prefer a real curated photo; fall back to a generated plate if the
-            # download fails, so an offline seed still produces images.
-            if use_photos and angle < len(photo_ids):
-                from app.services.media.photos import write_photo
-                meta = write_photo(media_root, rel, photo_ids[angle])
-            if meta is None and self.with_images:
-                meta = write_plate(media_root, rel, wood, key=product.slug, angle=angle)
-            if meta is None:
-                meta = {
-                    "base_path": rel, "sizes": [400, 800, 1600],
-                    "width": 1000, "height": 1250, "aspect": 0.8,
-                    "blur_data_url": None, "source": "generated", "checksum": None,
-                }
-            self.db.add(ProductImage(
-                product_id=product.id,
-                alt_text=f"{product.name}, view {angle + 1}",
-                sort_order=angle,
-                is_primary=(angle == 0),
-                **meta,
-            ))
+        # One honest, on-brand placeholder card per product, labelled with the
+        # piece and its wood. Real photography is added by the admin through the
+        # image manager; a stock room scene that does not match the item (a sofa
+        # on a wardrobe) is worse than a clear placeholder.
+        rel = f"products/{product.slug}/0"
+        if self.with_images:
+            from app.services.media.photos import write_placeholder
+            meta = write_placeholder(media_root, rel, wood, product.name)
+        else:
+            meta = {
+                "base_path": rel, "sizes": [400, 800, 1600],
+                "width": 1000, "height": 1250, "aspect": 0.8,
+                "blur_data_url": None, "source": "generated", "checksum": None,
+            }
+        self.db.add(ProductImage(
+            product_id=product.id,
+            alt_text=product.name,
+            sort_order=0,
+            is_primary=True,
+            **meta,
+        ))

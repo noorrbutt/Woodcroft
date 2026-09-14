@@ -1,14 +1,14 @@
-"""Curated product photography.
+"""Product imagery: honest placeholders, admin uploads, and optional stock photos.
 
-The procedural wood plates read as flat swatches, not as furniture anyone wants
-to buy. This module pulls real, styled furniture and interior photographs from
-the Unsplash CDN (free under the Unsplash License), crops them to the catalogue's
-4:5 aspect, and runs them through the same resize -> webp -> blur pipeline the
-plates use, so they are served locally and load instantly with a blur-up
-placeholder. Each unique photo is downloaded once and cached for the run.
+Real product photography is uploaded by an admin through the image manager. Until
+a piece has its own photo, the seed generates an on-brand placeholder card
+(write_placeholder) labelled with the product name and wood, rather than a stock
+room scene that would misrepresent the item. write_upload processes an admin's
+real photo into the same webp size family with a blur-up placeholder.
 
-If a download fails (offline, or a since-removed photo) the caller falls back to
-a generated plate for that image, so a seed never breaks for want of a network.
+The Unsplash helpers (write_photo/photo_ids_for) remain for the opt-in curated
+mode, but are not used for product images by default because a room-level photo
+cannot be guaranteed to match a specific piece.
 """
 
 from __future__ import annotations
@@ -19,9 +19,12 @@ import ssl
 import urllib.request
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
-from app.services.media.plates import SIZES, blur_data_url
+from app.models.enums import WoodSpecies
+from app.services.media.plates import SIZES, _hex, blur_data_url
+
+_FONT_PATH = Path(__file__).parent / "fonts" / "Lora.ttf"
 
 # Photo delivered pre-cropped to 4:5 by the Unsplash CDN, then optimised locally.
 _CDN = "https://images.unsplash.com/photo-{pid}?w=1200&h=1500&fit=crop&crop=edges&q=80"
@@ -125,6 +128,107 @@ def photo_ids_for(subcategory: str, seed: str, count: int) -> list[str]:
     # Cycle the pool so a product always gets `count` ids even where the pool is
     # small; a repeated photo beats mixing a photo with a plate on one product.
     return [pool[(start + i) % len(pool)] for i in range(count)]
+
+
+def _font(size: int, weight: int = 500) -> ImageFont.FreeTypeFont:
+    font = ImageFont.truetype(str(_FONT_PATH), size)
+    try:
+        font.set_variation_by_axes([weight])
+    except Exception:
+        pass
+    return font
+
+
+def _wrap(draw, text: str, font, max_width: int) -> list[str]:
+    words, lines, line = text.split(), [], ""
+    for word in words:
+        trial = f"{line} {word}".strip()
+        if draw.textlength(trial, font=font) <= max_width:
+            line = trial
+        else:
+            if line:
+                lines.append(line)
+            line = word
+    if line:
+        lines.append(line)
+    return lines[:4]
+
+
+def _mix(a: tuple[int, int, int], b: tuple[int, int, int], t: float) -> tuple[int, int, int]:
+    return tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(3))
+
+
+def write_placeholder(
+    root: Path, rel_path: str, species: WoodSpecies, product_name: str
+) -> dict:
+    """An honest, on-brand placeholder card labelled with the product.
+
+    Real product photography is uploaded by an admin. Until then, showing a
+    stock room scene that does not match the piece (a sofa on a wardrobe) is
+    worse than showing nothing, so this renders a tasteful editorial card: a
+    warm ground tinted by the wood, the product name in a serif, the wood named
+    beneath. It never pretends to be a photo of the item.
+    """
+    W, H = 1000, 1250
+    bone = (244, 239, 231)
+    tone = _hex(species.grain_palette[0])
+    ink = (42, 29, 18)
+    muted = _mix(ink, bone, 0.45)
+    brass = (176, 141, 87)
+
+    # Vertical gradient from bone to a soft wash of the wood tone.
+    base = Image.new("RGB", (W, H), bone)
+    px = base.load()
+    for y in range(H):
+        t = (y / H) * 0.22
+        row = _mix(bone, tone, t)
+        for x in range(W):
+            px[x, y] = row
+    draw = ImageDraw.Draw(base)
+
+    # Eyebrow, letter-spaced.
+    eyebrow = " ".join("WOODCROFT")
+    ef = _font(22, 500)
+    ew = draw.textlength(eyebrow, font=ef)
+    draw.text(((W - ew) / 2, 250), eyebrow, font=ef, fill=brass)
+
+    # Product name, wrapped and centred.
+    title_font = _font(58, 600)
+    lines = _wrap(draw, product_name, title_font, W - 200)
+    line_h = 74
+    total_h = line_h * len(lines)
+    y = (H - total_h) / 2 - 10
+    for ln in lines:
+        w = draw.textlength(ln, font=title_font)
+        draw.text(((W - w) / 2, y), ln, font=title_font, fill=ink)
+        y += line_h
+
+    # Brass rule.
+    draw.line([(W / 2 - 40, y + 24), (W / 2 + 40, y + 24)], fill=brass, width=2)
+
+    # Wood species beneath.
+    sf = _font(24, 500)
+    label = species.label.upper()
+    sw = draw.textlength(label, font=sf)
+    draw.text(((W - sw) / 2, y + 48), label, font=sf, fill=muted)
+
+    target = root / rel_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    for size in SIZES:
+        scaled = base.copy()
+        scaled.thumbnail((size, size * 2), Image.LANCZOS)
+        scaled.save(f"{target}_{size}.webp", "WEBP", quality=84, method=2)
+
+    return {
+        "base_path": rel_path,
+        "sizes": list(SIZES),
+        "width": W,
+        "height": H,
+        "aspect": round(W / H, 4),
+        "blur_data_url": blur_data_url(base),
+        "source": "generated",
+        "checksum": hashlib.sha256(f"placeholder:{rel_path}".encode()).hexdigest(),
+    }
 
 
 def write_upload(root: Path, rel_path: str, data: bytes) -> dict:
