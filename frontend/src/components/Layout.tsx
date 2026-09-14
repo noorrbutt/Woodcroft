@@ -366,7 +366,7 @@ function Header() {
               <li className="pt-3 mt-3 border-t border-line">
                 <Link to="/journal" className="block py-2 text-sm">Journal</Link>
               </li>
-              <li><Link to="/about" className="block py-2 text-sm">About</Link></li>
+              <li><Link to="/page/about" className="block py-2 text-sm">About</Link></li>
             </ul>
             <div className="mt-6 pt-4 border-t border-line">
               <ThemeToggle />
@@ -424,7 +424,7 @@ function Footer() {
               <li><Link to="/contact" className="hover:text-ink transition-colors">Contact us</Link></li>
               <li><Link to="/page/shipping" className="hover:text-ink transition-colors">Shipping</Link></li>
               <li><Link to="/page/returns" className="hover:text-ink transition-colors">Returns</Link></li>
-              <li><Link to="/track" className="hover:text-ink transition-colors">Track an order</Link></li>
+              <li><Link to="/account/orders" className="hover:text-ink transition-colors">Track an order</Link></li>
             </ul>
           </div>
 

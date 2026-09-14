@@ -215,7 +215,7 @@ export function ShopPage() {
     per_page: 24,
   }
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['products', requestParams],
     queryFn: () => get<ProductList>('/products', requestParams),
   })
@@ -330,7 +330,17 @@ export function ShopPage() {
             </label>
           </div>
 
-          {!isLoading && data?.total === 0 ? (
+          {isError ? (
+            <EmptyState
+              title="We could not load these products"
+              description="Please check your connection and try again."
+              action={
+                <button onClick={() => refetch()} className="wc-btn wc-btn-outline">
+                  Retry
+                </button>
+              }
+            />
+          ) : !isLoading && data?.total === 0 ? (
             <EmptyState
               title="Nothing matched"
               description={

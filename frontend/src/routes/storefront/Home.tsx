@@ -1,10 +1,11 @@
+import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { ArrowRight, Hammer, Leaf, Truck } from 'lucide-react'
 
-import { get } from '@/lib/api'
+import { get, post } from '@/lib/api'
 import { useReveal } from '@/hooks/useReveal'
-import { SectionHeading } from '@/components/ui'
+import { Button, SectionHeading } from '@/components/ui'
 import { ProductGrid } from '@/features/catalog/ProductCard'
 import type { Category, ProductList } from '@/lib/types'
 
@@ -196,10 +197,10 @@ function Story() {
         <div className="grid items-center gap-12 lg:grid-cols-2">
           <div>
             <span className="wc-numeral !text-[var(--brass-300)]">04</span>
-            <h2 className="mt-4 text-[var(--walnut-50)]">
+            <h2 className="mt-4 text-on-inverse">
               Every board is chosen by hand
             </h2>
-            <div className="mt-6 space-y-4 text-sm leading-relaxed text-[var(--walnut-200)]">
+            <div className="mt-6 space-y-4 text-sm leading-relaxed text-on-inverse opacity-80">
               <p>
                 Timber arrives at the yard behind the workshop as rough sawn
                 boards. It is stacked, stickered and left to settle for months
@@ -221,12 +222,12 @@ function Story() {
 
           <figure className="relative">
             <blockquote className="border-l-2 border-[var(--brass-400)] pl-6">
-              <p className="font-display text-2xl leading-relaxed text-[var(--walnut-100)]"
+              <p className="font-display text-2xl leading-relaxed text-on-inverse"
                  style={{ fontVariationSettings: '"SOFT" 40, "WONK" 1, "opsz" 72' }}>
                 “They measured my alcove twice before cutting anything. That
                 tells you everything.”
               </p>
-              <figcaption className="mt-5 text-xs tracking-widest uppercase text-[var(--walnut-300)]">
+              <figcaption className="mt-5 text-xs tracking-widest uppercase text-on-inverse opacity-70">
                 Hira Malik — Islamabad
               </figcaption>
             </blockquote>
@@ -238,6 +239,16 @@ function Story() {
 }
 
 function Newsletter() {
+  const [email, setEmail] = useState('')
+  const subscribe = useMutation({
+    mutationFn: () => post<{ message: string }>('/newsletter', { email, source: 'home' }),
+  })
+
+  const onSubmit = (event: FormEvent) => {
+    event.preventDefault()
+    if (email.trim()) subscribe.mutate()
+  }
+
   return (
     <section className="border-t border-line bg-sunken">
       <div className="wc-container py-16 text-center">
@@ -246,21 +257,31 @@ function Newsletter() {
           Care guides, new pieces and the occasional look inside the workshop.
           No more than twice a month.
         </p>
-        <form
-          className="mx-auto mt-7 flex max-w-md gap-2"
-          onSubmit={(event) => event.preventDefault()}
-        >
-          <input
-            type="email"
-            required
-            placeholder="you@example.com"
-            aria-label="Email address"
-            className="wc-input"
-          />
-          <button type="submit" className="wc-btn wc-btn-primary shrink-0">
-            Subscribe
-          </button>
-        </form>
+        {subscribe.isSuccess ? (
+          <p className="mx-auto mt-7 max-w-md text-sm text-[var(--wc-success)]">
+            {subscribe.data.message}
+          </p>
+        ) : (
+          <form className="mx-auto mt-7 flex max-w-md gap-2" onSubmit={onSubmit}>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              aria-label="Email address"
+              className="wc-input"
+            />
+            <Button type="submit" loading={subscribe.isPending} className="shrink-0">
+              Subscribe
+            </Button>
+          </form>
+        )}
+        {subscribe.isError && (
+          <p className="mx-auto mt-3 max-w-md text-sm text-[var(--wc-danger)]">
+            Something went wrong. Please try again.
+          </p>
+        )}
       </div>
     </section>
   )
