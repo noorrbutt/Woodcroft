@@ -14,7 +14,7 @@ from decimal import InvalidOperation
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
@@ -48,6 +48,7 @@ from app.models.inventory import StockLevel, StockMovement
 from app.models.order import Order, OrderItem, ReturnItem, ReturnRequest
 from app.models.promotion import Coupon, CouponRedemption, GiftCard, GiftCardTransaction
 from app.schemas.common import Message
+from app.core.sanitize import clean_html
 from app.services import notifications
 from app.services.order_ops import assert_return_transition, record_payment_refund
 
@@ -69,6 +70,8 @@ class BlogPostIn(BaseModel):
     slug: str | None = None
     excerpt: str | None = Field(None, max_length=500)
     body_html: str = ""
+
+    _clean_body = field_validator("body_html")(lambda cls, v: clean_html(v))
     category: str | None = None
     author_name: str = "Woodcroft Workshop"
     is_published: bool = False
@@ -182,6 +185,8 @@ class StaticPageIn(BaseModel):
     title: str = Field(min_length=2, max_length=200)
     slug: str | None = None
     body_html: str = ""
+
+    _clean_body = field_validator("body_html")(lambda cls, v: clean_html(v))
     is_published: bool = True
     show_in_footer: bool = True
     sort_order: int = 0
@@ -377,6 +382,8 @@ def admin_list_faqs(
 class FaqIn(BaseModel):
     question: str = Field(min_length=4, max_length=300)
     answer_html: str = Field(min_length=2)
+
+    _clean_answer = field_validator("answer_html")(lambda cls, v: clean_html(v))
     category: str = "general"
     is_published: bool = True
     sort_order: int = 0

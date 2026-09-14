@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 
 import { ApiError, get, post } from '@/lib/api'
 import { formatDate } from '@/lib/format'
+import { sanitizeHtml } from '@/lib/sanitize'
 import {
   Accordion,
   Breadcrumbs,
@@ -182,7 +183,7 @@ export function JournalPostPage() {
 
       <div
         className="wc-prose mx-auto mt-12 text-base leading-relaxed [&_h2]:mt-10 [&_h2]:mb-3 [&_h2]:font-display [&_h2]:text-2xl [&_p]:mt-4"
-        dangerouslySetInnerHTML={{ __html: post.body_html ?? '' }}
+        dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.body_html) }}
       />
 
       <div className="mx-auto mt-16 max-w-3xl border-t border-line pt-8 text-center">
@@ -223,7 +224,7 @@ export function StaticPageView() {
       <Breadcrumbs items={[{ label: 'Home', to: '/' }, { label: page.title }]} />
       <div
         className="wc-prose mx-auto mt-10 text-base leading-relaxed [&_h1]:mb-6 [&_h2]:mt-10 [&_h2]:mb-3 [&_h2]:font-display [&_h2]:text-2xl [&_p]:mt-4"
-        dangerouslySetInnerHTML={{ __html: page.body_html }}
+        dangerouslySetInnerHTML={{ __html: sanitizeHtml(page.body_html) }}
       />
     </div>
   )
@@ -261,7 +262,7 @@ export function FaqPage() {
               <h2 className="wc-eyebrow mb-4">{category}</h2>
               {items.map((faq) => (
                 <Accordion key={faq.id} title={faq.question}>
-                  <div dangerouslySetInnerHTML={{ __html: faq.answer_html }} />
+                  <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(faq.answer_html) }} />
                 </Accordion>
               ))}
             </section>
