@@ -212,6 +212,46 @@ def _zone_for(db, province: PakistanProvince | None) -> ShippingZone | None:
     return zones[0] if zones else None
 
 
+def _coupon_rejection(db, coupon, user, *, ignore_first_order: bool = False) -> str | None:
+    """Why a coupon may not be used, or None if it is fine.
+
+    is_live already covers active, the date window and the global usage cap. This
+    adds the per-user and first-order rules, which no request-path code enforced,
+    so a "one per customer" coupon was in truth unlimited.
+
+    ignore_first_order is set when re-checking during order recording, after the
+    new order has been flushed: the first-order rule was already validated at
+    quote time and the just-created order must not retroactively fail it.
+    """
+    if coupon is None or not coupon.is_live(datetime.now(UTC)):
+        return "invalid"
+    if coupon.first_order_only and not ignore_first_order:
+        if user is None:
+            return "first_order_only"
+        prior = db.scalar(
+            select(func.count())
+            .select_from(Order)
+            .where(Order.user_id == user.id, Order.status != OrderStatus.CANCELLED)
+        )
+        if prior:
+            return "first_order_only"
+    if coupon.usage_limit_per_user is not None:
+        # A per-customer limit cannot be enforced for a guest, so it is refused.
+        if user is None:
+            return "usage_limit_reached"
+        used = db.scalar(
+            select(func.count())
+            .select_from(CouponRedemption)
+            .where(
+                CouponRedemption.coupon_id == coupon.id,
+                CouponRedemption.user_id == user.id,
+            )
+        )
+        if used >= coupon.usage_limit_per_user:
+            return "usage_limit_reached"
+    return None
+
+
 def _build_quote(db, payload: QuoteIn, user=None):
     """Resolve a client cart into a priced quote. The prices are ours."""
     if not payload.lines:
@@ -345,11 +385,15 @@ def _build_quote(db, payload: QuoteIn, user=None):
             )
 
     coupon_input = None
+    resolved_coupon = None
+    coupon_reject = None
     if payload.coupon_code:
         coupon = db.scalar(
             select(Coupon).where(Coupon.code == payload.coupon_code.strip())
         )
-        if coupon is not None and coupon.is_live(datetime.now(UTC)):
+        coupon_reject = _coupon_rejection(db, coupon, user)
+        if coupon is not None and coupon_reject is None:
+            resolved_coupon = coupon
             coupon_input = CouponInput(
                 code=coupon.code,
                 kind=coupon.kind,
@@ -386,10 +430,14 @@ def _build_quote(db, payload: QuoteIn, user=None):
     )
 
     if payload.coupon_code and coupon_input is None:
-        priced.coupon_error = "invalid"
+        priced.coupon_error = coupon_reject or "invalid"
         priced.coupon_code = payload.coupon_code
 
-    return priced, meta, {"cod_available": cod_available, "free_shipping": free_shipping}
+    return priced, meta, {
+        "cod_available": cod_available,
+        "free_shipping": free_shipping,
+        "coupon": resolved_coupon,
+    }
 
 
 def _quote_out(priced, meta, extra) -> QuoteOut:
@@ -595,7 +643,7 @@ def place_order(
         total_paisa=priced.total_paisa,
         tax_mode=priced.tax_mode,
         tax_rate_bp=priced.tax_rate_bp,
-        coupon_code=priced.coupon_code if priced.discount_paisa else None,
+        coupon_code=extra["coupon"].code if extra.get("coupon") else None,
         loyalty_points_redeemed=priced.loyalty_points_redeemed,
         loyalty_points_earned=priced.loyalty_points_earned,
         shipping_name=shipping.full_name,
@@ -685,10 +733,19 @@ def place_order(
         to_status=OrderStatus.PENDING,
     ))
 
-    if priced.coupon_code and priced.discount_paisa:
-        coupon = db.scalar(select(Coupon).where(Coupon.code == priced.coupon_code))
-        if coupon is not None:
-            coupon.used_count = (coupon.used_count or 0) + 1
+    resolved_coupon = extra.get("coupon")
+    if resolved_coupon is not None:
+        # Gate on the resolved coupon, not on discount_paisa: a free-shipping
+        # coupon produces a zero discount but must still count against its caps.
+        # Re-lock and re-check under the lock so two concurrent orders cannot
+        # both slip past a global or per-user limit.
+        coupon = db.scalar(
+            select(Coupon).where(Coupon.id == resolved_coupon.id).with_for_update()
+        )
+        if coupon is not None and _coupon_rejection(
+            db, coupon, user, ignore_first_order=True
+        ) is None:
+            coupon.used_count = Coupon.used_count + 1
             db.add(CouponRedemption(
                 coupon_id=coupon.id,
                 order_id=order.id,
