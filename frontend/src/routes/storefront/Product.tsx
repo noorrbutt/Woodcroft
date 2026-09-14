@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Check, FileDown, Heart, Truck } from 'lucide-react'
@@ -16,6 +16,7 @@ import {
   Input,
   Price,
   QuantityStepper,
+  EmptyState,
   Rating,
   SectionHeading,
   Skeleton,
@@ -178,15 +179,23 @@ function PersonalizationFields({
 
 export function ProductPage() {
   const { slug } = useParams()
+  if (!slug) return <Navigate to="/shop" replace />
+  // Key the body on the slug so navigating between products (for example from
+  // "you may also like") remounts it and resets the option, quantity and
+  // personalization state, instead of carrying the previous product's over.
+  return <ProductBody key={slug} slug={slug} />
+}
+
+function ProductBody({ slug }: { slug: string }) {
   const [selected, setSelected] = useState<Record<string, string>>({})
   const [quantity, setQuantity] = useState(1)
   const [personalization, setPersonalization] = useState<Record<string, string>>({})
 
   const addToCart = useCartStore((state) => state.add)
-  const wishlisted = useWishlistStore((state) => state.slugs.includes(slug ?? ''))
+  const wishlisted = useWishlistStore((state) => state.slugs.includes(slug))
   const toggleWishlist = useWishlistStore((state) => state.toggle)
 
-  const { data: product, isLoading } = useQuery({
+  const { data: product, isLoading, isError } = useQuery({
     queryKey: ['product', slug],
     queryFn: () => get<ProductDetail>(`/products/${slug}`),
     enabled: Boolean(slug),
@@ -204,18 +213,33 @@ export function ProductPage() {
     enabled: Boolean(slug),
   })
 
-  /* Resolve the chosen option values to a single variant. A variant matches
-     when it carries every selected value. */
+  /* One value must be chosen for every option type before a concrete variant is
+     resolved. A product with no option types has a single variant, which is
+     always complete. */
+  const optionTypes = product?.option_types ?? []
+  const complete =
+    optionTypes.length === 0 || optionTypes.every((t) => selected[t.id])
+
+  /* Resolve the chosen values to a single variant, only once the selection is
+     complete, so the picker never silently prices an option the customer did
+     not choose. */
   const variant: Variant | undefined = useMemo(() => {
     if (!product) return undefined
+    if (optionTypes.length === 0) return product.variants[0]
+    if (!optionTypes.every((t) => selected[t.id])) return undefined
     const chosen = Object.values(selected)
-    if (chosen.length === 0) {
-      return product.variants.find((v) => v.stock.is_in_stock) ?? product.variants[0]
-    }
     return product.variants.find((v) =>
       chosen.every((valueId) => v.option_value_ids.includes(valueId)),
     )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product, selected])
+
+  // Clamp the quantity down when the chosen variant has less stock than the
+  // number currently in the stepper, so a new line never exceeds availability.
+  useEffect(() => {
+    const max = Math.max(1, variant?.stock.available || 99)
+    setQuantity((q) => Math.min(q, max))
+  }, [variant])
 
   const personalizationLines: PersonalizationValue[] = useMemo(() => {
     if (!product) return []
@@ -242,6 +266,24 @@ export function ProductPage() {
     product?.personalization_options.filter(
       (option) => option.is_required && !(personalization[option.key] ?? '').trim(),
     ) ?? []
+
+  // A 404 or API error must not sit on the skeleton forever. Retries are off for
+  // 4xx, so the query settles with no product; show a real empty state instead.
+  if (isError || (!isLoading && !product)) {
+    return (
+      <div className="wc-container py-16">
+        <EmptyState
+          title="We could not find that piece"
+          description="It may have been sold or moved. Browse the full collection instead."
+          action={
+            <Link to="/shop" className="wc-btn wc-btn-primary">
+              Back to shop
+            </Link>
+          }
+        />
+      </div>
+    )
+  }
 
   if (isLoading || !product) {
     return (
@@ -410,10 +452,14 @@ export function ProductPage() {
             <Button
               size="lg"
               onClick={handleAdd}
-              disabled={!variant?.stock.is_in_stock}
+              disabled={!complete || !variant?.stock.is_in_stock}
               className="flex-1 min-w-[12rem]"
             >
-              {variant?.stock.is_in_stock ? 'Add to cart' : 'Out of stock'}
+              {!complete
+                ? `Choose ${optionTypes.find((t) => !selected[t.id])?.name ?? 'an option'}`
+                : variant?.stock.is_in_stock
+                  ? 'Add to cart'
+                  : 'Out of stock'}
             </Button>
             <button
               onClick={() => toggleWishlist(product.slug)}

@@ -88,14 +88,16 @@ export function LoginPage() {
         <Button type="submit" fullWidth loading={loading}>Sign in</Button>
       </form>
 
-      <div className="mt-8 border border-line bg-sunken p-4 text-xs text-muted">
-        <p className="mb-2 font-medium text-ink">Demo accounts</p>
-        <ul className="space-y-1 font-mono text-[0.7rem]">
-          <li>admin@woodcroft.pk / woodcroft-admin</li>
-          <li>staff@woodcroft.pk / woodcroft-staff</li>
-          <li>customer@woodcroft.pk / woodcroft-demo</li>
-        </ul>
-      </div>
+      {import.meta.env.DEV && (
+        <div className="mt-8 border border-line bg-sunken p-4 text-xs text-muted">
+          <p className="mb-2 font-medium text-ink">Demo accounts (dev only)</p>
+          <ul className="space-y-1 font-mono text-[0.7rem]">
+            <li>admin@woodcroft.pk / woodcroft-admin</li>
+            <li>staff@woodcroft.pk / woodcroft-staff</li>
+            <li>customer@woodcroft.pk / woodcroft-demo</li>
+          </ul>
+        </div>
+      )}
     </Shell>
   )
 }

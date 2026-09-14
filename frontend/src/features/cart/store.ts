@@ -106,7 +106,18 @@ export const useCartStore = create<CartState>()(
               ),
             }
           }
-          return { lines: [...state.lines, { ...incoming, lineId }] }
+          return {
+            lines: [
+              ...state.lines,
+              {
+                ...incoming,
+                lineId,
+                // Clamp a brand-new line too, not just merges, so switching to a
+                // low-stock variant cannot add more than is available.
+                quantity: Math.min(incoming.maxQuantity || 99, incoming.quantity),
+              },
+            ],
+          }
         })
       },
 
