@@ -102,6 +102,73 @@ function Gallery({ product }: { product: ProductDetail }) {
   )
 }
 
+/* Common size presets plus a custom option for made-to-order dimensions.
+   "Standard" carries no surcharge (the piece as shown); the others are treated
+   as personalised and priced by the option's surcharge. */
+const DIMENSION_PRESETS = [
+  { key: 'standard', label: 'Standard', value: '' },
+  { key: 'compact', label: 'Compact', value: 'Compact — about 10% smaller than standard' },
+  { key: 'large', label: 'Large', value: 'Large — about 10% larger than standard' },
+  { key: 'custom', label: 'Custom size', value: null },
+] as const
+
+function DimensionPicker({
+  value,
+  defaultDims,
+  onChange,
+}: {
+  value: string
+  defaultDims: string | null
+  onChange: (next: string) => void
+}) {
+  const knownPreset = DIMENSION_PRESETS.find(
+    (p) => p.value !== null && p.value === value,
+  )
+  const [mode, setMode] = useState<string>(
+    value === '' ? 'standard' : knownPreset ? knownPreset.key : 'custom',
+  )
+
+  const pick = (preset: (typeof DIMENSION_PRESETS)[number]) => {
+    setMode(preset.key)
+    onChange(preset.value === null ? '' : preset.value)
+  }
+
+  return (
+    <div>
+      <div className="flex flex-wrap gap-2">
+        {DIMENSION_PRESETS.map((preset) => (
+          <button
+            key={preset.key}
+            type="button"
+            onClick={() => pick(preset)}
+            aria-pressed={mode === preset.key}
+            className={cn(
+              'border px-3 py-1.5 text-xs transition-colors',
+              mode === preset.key
+                ? 'border-[var(--wc-border-strong)] bg-sunken text-ink'
+                : 'border-control text-muted hover:border-[var(--wc-border-strong)]',
+            )}
+          >
+            {preset.label}
+          </button>
+        ))}
+      </div>
+      {mode === 'custom' && (
+        <Input
+          className="mt-2"
+          placeholder={defaultDims ? `As shown: ${defaultDims}` : 'e.g. 200 × 95 × 76 cm'}
+          value={value}
+          maxLength={60}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      )}
+      {mode === 'standard' && defaultDims && (
+        <p className="mt-2 text-xs text-faint">As shown: {defaultDims}</p>
+      )}
+    </div>
+  )
+}
+
 function PersonalizationFields({
   product,
   values,
@@ -142,11 +209,12 @@ function PersonalizationFields({
             }
           >
             {option.input_type === 'dimensions' ? (
-              <Input
-                placeholder="e.g. 200 × 95 × 76 cm"
+              <DimensionPicker
                 value={value}
-                maxLength={60}
-                onChange={(event) => onChange(option.key, event.target.value)}
+                defaultDims={
+                  product.dimensions ? formatDimensions(product.dimensions) : null
+                }
+                onChange={(next) => onChange(option.key, next)}
               />
             ) : (
               <Input

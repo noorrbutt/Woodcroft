@@ -51,9 +51,9 @@ function Hero() {
       <div className="wc-container relative flex flex-col justify-center" style={{ minHeight: 'min(88svh, 860px)' }}>
         <div className="max-w-2xl py-24">
           <div className="mb-6 flex items-center gap-3">
-            <span className="wc-numeral !text-[var(--brass-300)]">EST 2009</span>
+            <span className="wc-numeral !text-[var(--brass-300)]">EST 2002</span>
             <span className="h-px w-12 bg-[var(--brass-400)]" aria-hidden />
-            <span className="wc-eyebrow !text-[var(--walnut-200)]">Lahore</span>
+            <span className="wc-eyebrow !text-[var(--walnut-200)]">Karachi</span>
           </div>
 
           <h1 className="text-[var(--walnut-50)]">
@@ -127,7 +127,7 @@ function Collections() {
             <Link
               key={category.id}
               to={`/collections/${category.slug}`}
-              className="group relative flex min-h-[15rem] flex-col justify-end overflow-hidden border border-line bg-[var(--walnut-100)] p-6 wc-lift dark:bg-[var(--wc-surface-raised)]"
+              className="group relative flex min-h-[15rem] flex-col justify-end overflow-hidden border border-line bg-raised p-6 wc-lift"
             >
               <div className="wc-grain absolute inset-0" aria-hidden />
               <span className="wc-numeral relative mb-2">
@@ -252,7 +252,7 @@ function Newsletter() {
   return (
     <section className="border-t border-line bg-sunken">
       <div className="wc-container py-16 text-center">
-        <h2 className="font-display text-2xl">Ten percent off your first order</h2>
+        <h2 className="font-display text-2xl">10% off your first order</h2>
         <p className="mx-auto mt-3 max-w-md text-sm text-muted">
           Care guides, new pieces and the occasional look inside the workshop.
           No more than twice a month.

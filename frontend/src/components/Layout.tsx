@@ -33,6 +33,19 @@ import { SupportWidget } from '@/features/support/SupportWidget'
 import type { Category, SearchSuggestion } from '@/lib/types'
 
 export function Wordmark({ className }: { className?: string }) {
+  // Uses the brand logo at /brand/logo.png when present, and falls back to the
+  // typeset wordmark otherwise, so nothing breaks before the asset is added.
+  const [logoOk, setLogoOk] = useState(true)
+  if (logoOk) {
+    return (
+      <img
+        src="/brand/logo.png"
+        alt="Woodcroft"
+        className={cn('h-8 w-auto', className)}
+        onError={() => setLogoOk(false)}
+      />
+    )
+  }
   return (
     <span className={cn('inline-flex items-baseline gap-[0.1em]', className)}>
       <span
@@ -216,7 +229,7 @@ function Header() {
 
       <header className="sticky top-0 z-40 border-b border-line bg-canvas/95 backdrop-blur wc-no-print">
         <div className="wc-container">
-          <div className="flex h-16 items-center gap-4">
+          <div className="flex h-14 items-center gap-4">
             <button
               className="lg:hidden p-1 text-muted"
               onClick={() => setMenuOpen(true)}
@@ -266,7 +279,7 @@ function Header() {
 
               <Link
                 to="/account/wishlist"
-                className="p-2 text-muted hover:text-ink transition-colors"
+                className="p-1.5 text-muted hover:text-ink transition-colors"
                 aria-label="Wishlist"
               >
                 <Heart size={18} strokeWidth={1.5} />
@@ -276,7 +289,7 @@ function Header() {
                 <div className="relative group">
                   <Link
                     to="/account"
-                    className="flex items-center gap-1.5 p-2 text-muted hover:text-ink transition-colors"
+                    className="flex items-center gap-1.5 p-1.5 text-muted hover:text-ink transition-colors"
                     aria-label="Your account"
                   >
                     <UserIcon size={18} strokeWidth={1.5} />
@@ -303,7 +316,7 @@ function Header() {
               ) : (
                 <Link
                   to="/login"
-                  className="p-2 text-muted hover:text-ink transition-colors"
+                  className="p-1.5 text-muted hover:text-ink transition-colors"
                   aria-label="Sign in"
                 >
                   <UserIcon size={18} strokeWidth={1.5} />
@@ -312,7 +325,7 @@ function Header() {
 
               <button
                 onClick={() => setCartOpen(true)}
-                className="relative p-2 text-muted hover:text-ink transition-colors"
+                className="relative p-1.5 text-muted hover:text-ink transition-colors"
                 aria-label={`Cart, ${itemCount} items`}
               >
                 <ShoppingBag size={18} strokeWidth={1.5} />
