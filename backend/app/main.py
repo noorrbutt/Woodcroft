@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
@@ -65,9 +66,11 @@ app = FastAPI(
     ),
     version="1.0.0",
     lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    # The interactive docs and the OpenAPI schema map every endpoint and its
+    # request shape, including admin routes. Keep them out of production.
+    docs_url=None if settings.is_production else "/docs",
+    redoc_url=None if settings.is_production else "/redoc",
+    openapi_url=None if settings.is_production else "/openapi.json",
 )
 
 app.state.limiter = limiter
@@ -86,20 +89,30 @@ register_exception_handlers(app)
 
 
 @app.middleware("http")
-async def security_headers(request, call_next):
-    """Baseline security headers on every response.
+async def request_context(request: Request, call_next):
+    """Attach a request id for correlation, and set baseline security headers.
 
-    Not a substitute for a reverse proxy setting HSTS at the edge, but these
-    cost nothing and close off clickjacking, MIME sniffing and referrer leakage
-    by default rather than relying on the deployment to remember.
+    The request id is echoed back and included in the 500 envelope so a support
+    report can be traced to one log line. The headers close off clickjacking,
+    MIME sniffing and referrer leakage by default rather than relying on the
+    deployment to remember. The API only ever returns JSON, so a strict CSP is
+    safe here; the storefront's own CSP is set at nginx.
     """
+    request.state.request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
     response = await call_next(request)
+    response.headers["X-Request-ID"] = request.state.request_id
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     response.headers.setdefault(
         "Permissions-Policy", "geolocation=(), microphone=(), camera=()"
     )
+    # Strict CSP on API responses only; the docs pages (dev only) load their own
+    # assets and would break under default-src 'none'.
+    if not request.url.path.startswith(("/docs", "/redoc", "/openapi")):
+        response.headers.setdefault(
+            "Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'"
+        )
     if settings.is_production:
         response.headers.setdefault(
             "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
@@ -143,7 +156,28 @@ app.include_router(admin_content_router.router, prefix=settings.API_V1_PREFIX)
 
 @app.get("/health", tags=["meta"])
 def health() -> dict[str, str]:
+    """Liveness: the process is up. Cheap, never touches the database."""
     return {"status": "ok", "app": settings.APP_NAME, "env": settings.APP_ENV}
+
+
+@app.get("/readyz", tags=["meta"])
+def readyz():
+    """Readiness: can we actually serve? Pings the database and 503s if not, so
+    the load balancer stops routing traffic to an instance whose DB is gone."""
+    from fastapi.responses import JSONResponse
+    from sqlalchemy import text
+
+    from app.db.session import SessionLocal
+
+    try:
+        db = SessionLocal()
+        try:
+            db.execute(text("SELECT 1"))
+        finally:
+            db.close()
+    except Exception:
+        return JSONResponse(status_code=503, content={"status": "unavailable"})
+    return {"status": "ready"}
 
 
 @app.get("/", tags=["meta"])

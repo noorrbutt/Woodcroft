@@ -8,12 +8,15 @@ error-handling path:
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
+
+log = logging.getLogger("woodcroft.errors")
 
 
 class AppError(Exception):
@@ -177,6 +180,25 @@ def register_exception_handlers(app: FastAPI) -> None:
                 "error": {
                     "code": "conflict",
                     "message": "That operation conflicts with existing data.",
+                }
+            },
+        )
+
+    @app.exception_handler(Exception)
+    async def _unhandled(request: Request, exc: Exception) -> JSONResponse:
+        # Anything not caught above (a pool timeout, an OperationalError, a bug)
+        # would otherwise return Starlette's plain-text 500 and break the single
+        # JSON envelope the frontend parses. Log it with the request id and
+        # return the standard shape. Never leak the exception text to the client.
+        request_id = getattr(request.state, "request_id", None)
+        log.exception("unhandled error [request_id=%s] on %s", request_id, request.url.path)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "error": {
+                    "code": "internal_error",
+                    "message": "Something went wrong on our end. Please try again.",
+                    **({"request_id": request_id} if request_id else {}),
                 }
             },
         )

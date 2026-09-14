@@ -14,6 +14,7 @@ drivers never loses history.
 from __future__ import annotations
 
 import smtplib
+import ssl
 import uuid
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
@@ -21,7 +22,8 @@ from email.message import EmailMessage
 from pathlib import Path
 from typing import Any
 
-from jinja2 import Environment, FileSystemLoader, select_autoescape
+from jinja2 import FileSystemLoader, select_autoescape
+from jinja2.sandbox import SandboxedEnvironment
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -33,7 +35,11 @@ from app.models.ops import NotificationOutbox, NotificationTemplate
 
 TEMPLATE_DIR = BACKEND_DIR / "app" / "templates"
 
-_env = Environment(
+# Sandboxed: some templates come from the notification_template DB rows, which a
+# future admin template editor would let staff write. Plain Jinja from a database
+# string is remote code execution; the sandbox blocks attribute access to Python
+# internals while still rendering normal templates.
+_env = SandboxedEnvironment(
     loader=FileSystemLoader(str(TEMPLATE_DIR)),
     autoescape=select_autoescape(["html", "xml"]),
     trim_blocks=True,
@@ -103,7 +109,10 @@ class SmtpDriver(NotificationDriver):
             email.add_alternative(message.body_html, subtype="html")
 
         with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as smtp:
-            smtp.starttls()
+            # Verify the relay's certificate. Without a context, smtplib falls
+            # back to an unverified TLS session, so a man in the middle could
+            # capture the SMTP credentials and every reset/verification token.
+            smtp.starttls(context=ssl.create_default_context())
             if settings.SMTP_USER:
                 smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
             smtp.send_message(email)

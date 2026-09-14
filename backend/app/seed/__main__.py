@@ -25,6 +25,32 @@ from app.seed.promotions import seed_promotions
 from app.seed.runner import Seeder
 
 
+def _guard_destructive() -> None:
+    """Refuse to drop a production database, or an unexpected one.
+
+    reset_schema runs DROP SCHEMA public CASCADE against whatever DATABASE_URL
+    points at. That is unrecoverable, so require an explicit opt-in and never
+    allow it in production.
+    """
+    import os
+
+    from sqlalchemy.engine import make_url
+
+    if settings.is_production:
+        raise SystemExit(
+            "Refusing to reset the schema: APP_ENV is production. A destructive "
+            "seed must never run against production data."
+        )
+    if os.environ.get("WOODCROFT_ALLOW_DESTRUCTIVE_SEED") == "yes":
+        return
+    db_name = make_url(settings.DATABASE_URL).database or "?"
+    print(f"\nThis will DROP and rebuild the schema of database '{db_name}'.")
+    print("Everything in it will be permanently deleted.")
+    answer = input(f"Type the database name ('{db_name}') to continue: ").strip()
+    if answer != db_name:
+        raise SystemExit("Cancelled: the name did not match.")
+
+
 def reset_schema() -> None:
     """Drop and rebuild the schema, then re-stamp Alembic.
 
@@ -35,6 +61,8 @@ def reset_schema() -> None:
 
     import app.models  # noqa: F401
 
+    _guard_destructive()
+
     with engine.begin() as conn:
         conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
         conn.execute(text("CREATE SCHEMA public"))
@@ -44,16 +72,16 @@ def reset_schema() -> None:
     Base.metadata.create_all(engine)
 
     # Stamp the migration head so `alembic upgrade` is a no-op afterwards
-    # rather than trying to recreate tables that already exist.
-    try:
-        from alembic import command
-        from alembic.config import Config
+    # rather than trying to recreate tables that already exist. Anchored on the
+    # backend directory, not the media path, which may be an unrelated mounted
+    # volume in production.
+    from app.core.config import BACKEND_DIR
+    from alembic import command
+    from alembic.config import Config
 
-        cfg = Config(str(settings.media_path.parent / "alembic.ini"))
-        cfg.set_main_option("script_location", str(settings.media_path.parent / "alembic"))
-        command.stamp(cfg, "head")
-    except Exception as exc:  # pragma: no cover - convenience only
-        print(f"  note: could not stamp alembic head ({exc})")
+    cfg = Config(str(BACKEND_DIR / "alembic.ini"))
+    cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
+    command.stamp(cfg, "head")
 
 
 def _advance_number_sequences(db) -> None:

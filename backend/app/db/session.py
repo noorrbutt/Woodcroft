@@ -15,6 +15,11 @@ engine = create_engine(
     pool_size=settings.DB_POOL_SIZE,
     max_overflow=settings.DB_MAX_OVERFLOW,
     pool_pre_ping=True,
+    # Recycle connections before a proxy or Postgres idle timeout can close them
+    # out from under the pool, and fail fast rather than hanging 30s when the
+    # pool is exhausted so the request returns a clean error under load.
+    pool_recycle=1800,
+    pool_timeout=10,
     future=True,
 )
 
