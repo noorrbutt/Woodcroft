@@ -7,6 +7,15 @@ faster than recreating the schema per test, and it keeps tests order-independent
 
 from __future__ import annotations
 
+import os
+
+# Force the test profile before any application module (and therefore the
+# settings singleton) is imported. Environment variables win over the .env
+# file in pydantic-settings, so this overrides APP_ENV=development from .env.
+# It disables the rate limiter (otherwise its in-memory bucket bleeds across
+# tests and later logins 429) and keeps the production guard dormant.
+os.environ.setdefault("APP_ENV", "test")
+
 from collections.abc import Generator
 
 import pytest
