@@ -231,9 +231,25 @@ def send_review_reminders(db: Session, payload: dict[str, Any]) -> None:
         )
     ).all()
 
+    from app.models.ops import NotificationOutbox
+
     for order in orders:
         user = db.get(User, order.user_id) if order.user_id else None
         if user is None:
+            continue
+
+        # Do not send twice. The job's window is wider than its cadence, so
+        # consecutive runs overlap; dedupe on the outbox, which records what was
+        # actually sent, rather than on the window.
+        sent_already = db.scalar(
+            select(func.count())
+            .select_from(NotificationOutbox)
+            .where(
+                NotificationOutbox.order_id == order.id,
+                NotificationOutbox.template_key == "review_reminder",
+            )
+        )
+        if sent_already:
             continue
 
         already = db.scalar(

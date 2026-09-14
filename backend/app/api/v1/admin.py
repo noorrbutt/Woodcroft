@@ -627,6 +627,8 @@ def adjust_stock(
     if level is None:
         raise NotFoundError("That variant has no stock record.")
 
+    reserved = level.reserved or 0
+    old_available = level.on_hand - reserved
     new_balance = level.on_hand + payload.delta
     if new_balance < 0:
         raise ValidationError(
@@ -641,6 +643,18 @@ def adjust_stock(
     level.on_hand = new_balance
     if payload.delta > 0:
         level.restocked_at = datetime.now(UTC)
+
+    # A variant coming back into stock is when the "notify me" subscribers are
+    # told. Nothing else enqueues this job, so without it the alert never fires.
+    if old_available <= 0 < (new_balance - reserved):
+        from app.workers.runner import enqueue
+
+        enqueue(
+            db,
+            "notify_back_in_stock",
+            {"variant_id": str(payload.variant_id)},
+            dedupe_key=f"back_in_stock:{payload.variant_id}",
+        )
 
     db.add(StockMovement(
         variant_id=payload.variant_id,
