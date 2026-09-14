@@ -26,11 +26,11 @@ function Hero() {
   const ref = useReveal<HTMLDivElement>()
   return (
     <section className="relative overflow-hidden bg-[var(--walnut-50)]">
-      {/* The wordmark is baked into the photo so "Made to be kept" rises from
-          behind the headboard and stays pixel-aligned with it. The image shows
-          at its natural aspect (never cropping the letters), with a max-height
-          that only trims the top wall / foot on very wide screens where the
-          centred wordmark stays safe. A portrait cut is swapped in on phones. */}
+      {/* A spacious room seen from afar: the wordmark is baked onto the back
+          wall so "Made to be kept" rises from behind the bed and stays
+          pixel-aligned with it. The image shows at its natural aspect (never
+          cropping the letters), with a max-height that only trims the ceiling /
+          foot on very wide screens. A portrait cut is swapped in on phones. */}
       <picture>
         <source
           media="(max-width: 640px)"
@@ -49,14 +49,6 @@ function Hero() {
       {/* Real heading for a11y/SEO; the visible one lives in the image. */}
       <h1 className="sr-only">Made to be kept</h1>
 
-      {/* A soft bone lift at the foot so the sub-copy and buttons read over the
-          duvet without dimming the photo. */}
-      <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5"
-        aria-hidden
-        style={{ background: 'linear-gradient(to top, rgb(244 234 216 / 0.92) 8%, rgb(244 234 216 / 0.4) 45%, transparent 100%)' }}
-      />
-
       <div ref={ref} className="wc-reveal absolute inset-0 flex flex-col justify-between">
         <div className="wc-container pt-7">
           <div className="flex items-center justify-center gap-3">
@@ -67,25 +59,19 @@ function Hero() {
         </div>
 
         <div className="wc-container pb-10">
-          <div className="max-w-md">
-            <p className="text-[0.95rem] leading-relaxed text-[var(--walnut-800)]">
-              Solid sheesham, walnut and teak, cut and joined by hand. No veneer,
-              no board, no shortcuts on the side nobody sees.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link
-                to="/shop"
-                className="wc-btn wc-btn-lg bg-[var(--walnut-900)] text-[var(--walnut-50)] transition-[filter,transform,box-shadow] hover:-translate-y-px hover:brightness-125 hover:shadow-[var(--wc-shadow-md)]"
-              >
-                Explore the collection
-              </Link>
-              <Link
-                to="/collections/bespoke"
-                className="wc-btn wc-btn-lg border border-[var(--walnut-500)] text-[var(--walnut-800)] hover:bg-[color-mix(in_srgb,var(--walnut-900)_7%,transparent)]"
-              >
-                Commission a piece
-              </Link>
-            </div>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              to="/shop"
+              className="wc-btn wc-btn-lg bg-[var(--walnut-900)] text-[var(--walnut-50)] transition-[filter,transform,box-shadow] hover:-translate-y-px hover:brightness-125 hover:shadow-[var(--wc-shadow-md)]"
+            >
+              Explore the collection
+            </Link>
+            <Link
+              to="/collections/bespoke"
+              className="wc-btn wc-btn-lg border border-[var(--walnut-500)] text-[var(--walnut-800)] hover:bg-[color-mix(in_srgb,var(--walnut-900)_7%,transparent)]"
+            >
+              Commission a piece
+            </Link>
           </div>
         </div>
       </div>
