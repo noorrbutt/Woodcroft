@@ -59,20 +59,12 @@ function Hero() {
         </div>
 
         <div className="wc-container pb-10">
-          <div className="flex flex-wrap gap-3">
-            <Link
-              to="/shop"
-              className="wc-btn wc-btn-lg bg-[var(--walnut-900)] text-[var(--walnut-50)] transition-[filter,transform,box-shadow] hover:-translate-y-px hover:brightness-125 hover:shadow-[var(--wc-shadow-md)]"
-            >
-              Explore the collection
-            </Link>
-            <Link
-              to="/collections/bespoke"
-              className="wc-btn wc-btn-lg border border-[var(--walnut-500)] text-[var(--walnut-800)] hover:bg-[color-mix(in_srgb,var(--walnut-900)_7%,transparent)]"
-            >
-              Commission a piece
-            </Link>
-          </div>
+          <Link
+            to="/shop"
+            className="wc-btn wc-btn-lg bg-[var(--walnut-900)] text-[var(--walnut-50)] transition-[filter,transform,box-shadow] hover:-translate-y-px hover:brightness-125 hover:shadow-[var(--wc-shadow-md)]"
+          >
+            Explore the collection
+          </Link>
         </div>
       </div>
     </section>

@@ -78,10 +78,9 @@ def main() -> int:
     crop = src.crop((0, top, W, top + ch))
     cw, chh = crop.size
     mask = _bed_mask(cw, chh, [
-        (0.27, 0.55, 0.73, 1.0),   # headboard
+        (0.27, 0.53, 0.73, 1.0),   # headboard (bumps up in the centre)
+        (0.05, 0.60, 0.95, 1.0),   # fluted-panel band, full width, tucks the outer letters
         (0.19, 0.68, 0.81, 1.0),   # bed frame
-        (0.10, 0.66, 0.26, 1.0),   # left nightstand
-        (0.74, 0.66, 0.90, 1.0),   # right nightstand
     ])
     comp = crop.copy()
     _centre(ImageDraw.Draw(comp), "Made to be kept", _font_for("Made to be kept", int(cw * 0.82)),
@@ -96,7 +95,7 @@ def main() -> int:
     cw2 = int(H * 4 / 5)
     mc = src.crop(((W - cw2) // 2, 0, (W - cw2) // 2 + cw2, H))
     cw, chh = mc.size
-    mask = _bed_mask(cw, chh, [(0.14, 0.55, 0.86, 1.0), (0.04, 0.68, 0.96, 1.0)])
+    mask = _bed_mask(cw, chh, [(0.06, 0.55, 0.94, 1.0), (0.02, 0.68, 0.98, 1.0)])
     f = _font_for("be kept", int(cw * 0.80))
     lh = int((f.getbbox("be kept")[3] - f.getbbox("be kept")[1]) * 1.06)
     comp = mc.copy()
