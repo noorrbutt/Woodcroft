@@ -20,7 +20,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 from app.core.config import settings
 
@@ -30,7 +30,12 @@ INK = (50, 37, 27)
 
 
 def _upscale(im: Image.Image, target_w: int) -> Image.Image:
-    return im.resize((target_w, round(target_w * im.height / im.width)), Image.LANCZOS)
+    """Upscale a small source, then restore perceived crispness (the source is
+    low-res, so LANCZOS goes soft; unsharp + a touch of contrast bring it back)."""
+    big = im.resize((target_w, round(target_w * im.height / im.width)), Image.LANCZOS)
+    big = big.filter(ImageFilter.UnsharpMask(radius=2.4, percent=150, threshold=2))
+    big = ImageEnhance.Contrast(big).enhance(1.04)
+    return ImageEnhance.Color(big).enhance(1.05)
 
 
 def _bed_mask(cw: int, chh: int, rects: list[tuple[float, float, float, float]]) -> Image.Image:
@@ -59,7 +64,7 @@ def _save(img: Image.Image, base: Path, widths: tuple[int, ...]) -> None:
     cw, ch = img.size
     for w in widths:
         img.resize((w, round(w * ch / cw)), Image.LANCZOS).save(
-            f"{base}_{w}.webp", "WEBP", quality=88, method=4
+            f"{base}_{w}.webp", "WEBP", quality=92, method=6
         )
 
 
@@ -78,8 +83,8 @@ def main() -> int:
     crop = src.crop((0, top, W, top + ch))
     cw, chh = crop.size
     mask = _bed_mask(cw, chh, [
-        (0.27, 0.53, 0.73, 1.0),   # headboard (bumps up in the centre)
-        (0.05, 0.60, 0.95, 1.0),   # fluted-panel band, full width, tucks the outer letters
+        (0.27, 0.50, 0.73, 1.0),   # headboard (bumps up in the centre)
+        (0.03, 0.565, 0.97, 1.0),  # fluted-panel band, full width, tucks the outer letters
         (0.19, 0.68, 0.81, 1.0),   # bed frame
     ])
     comp = crop.copy()
@@ -95,7 +100,7 @@ def main() -> int:
     cw2 = int(H * 4 / 5)
     mc = src.crop(((W - cw2) // 2, 0, (W - cw2) // 2 + cw2, H))
     cw, chh = mc.size
-    mask = _bed_mask(cw, chh, [(0.06, 0.55, 0.94, 1.0), (0.02, 0.68, 0.98, 1.0)])
+    mask = _bed_mask(cw, chh, [(0.04, 0.53, 0.96, 1.0), (0.01, 0.68, 0.99, 1.0)])
     f = _font_for("be kept", int(cw * 0.80))
     lh = int((f.getbbox("be kept")[3] - f.getbbox("be kept")[1]) * 1.06)
     comp = mc.copy()
