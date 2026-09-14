@@ -83,7 +83,7 @@ export function ProductCard({
           <button
             onClick={(event) => {
               event.preventDefault()
-              toggleWishlist(product.slug)
+              toggleWishlist(product.slug, product.id)
             }}
             aria-label={wishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
             aria-pressed={wishlisted}

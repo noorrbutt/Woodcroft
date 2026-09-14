@@ -352,7 +352,7 @@ export function CheckoutPage() {
 
   const payload = useQuotePayload(form.province)
 
-  const { data: quote, isLoading: quoting } = useQuery({
+  const { data: quote, isLoading: quoting, isError: quoteError } = useQuery({
     queryKey: ['quote', payload],
     queryFn: () => post<Quote>('/checkout/quote', payload),
     enabled: lines.length > 0,
@@ -365,7 +365,7 @@ export function CheckoutPage() {
 
   const placeOrder = useMutation({
     mutationFn: () =>
-      post<{ order_number: string }>('/orders', {
+      post<{ order_number: string; access_token: string | null }>('/orders', {
         ...payload,
         shipping: form,
         email: user ? undefined : email,
@@ -377,7 +377,12 @@ export function CheckoutPage() {
     onSuccess: (order) => {
       clearCart()
       toast.success('Order placed. Thank you.')
-      navigate(`/order/${order.order_number}`, { replace: true })
+      // A guest order is only viewable with its access token, so carry it in the
+      // confirmation URL. A signed-in order needs no token.
+      const suffix = order.access_token
+        ? `?token=${encodeURIComponent(order.access_token)}`
+        : ''
+      navigate(`/order/${order.order_number}${suffix}`, { replace: true })
     },
     onError: (error) => {
       if (error instanceof ApiError) {
@@ -633,13 +638,19 @@ export function CheckoutPage() {
               />
             </div>
 
+            {quoteError && (
+              <p className="mt-4 border border-[var(--wc-danger)]/40 bg-[var(--wc-danger)]/10 p-3 text-sm text-[var(--wc-danger)]">
+                One or more items in your cart are no longer available. Please
+                return to your cart and remove anything marked unavailable.
+              </p>
+            )}
             <Button
               type="submit"
               size="lg"
               fullWidth
               className="mt-5"
               loading={placeOrder.isPending}
-              disabled={!terms || Boolean(codBlocked)}
+              disabled={!terms || !quote || Boolean(codBlocked)}
             >
               <Lock size={13} strokeWidth={1.5} /> Place order
             </Button>
@@ -683,9 +694,15 @@ interface OrderResponse {
 
 export function OrderConfirmationPage() {
   const { orderNumber } = useParams()
+  const [searchParams] = useSearchParams()
+  const token = searchParams.get('token')
   const { data: order, isLoading } = useQuery({
-    queryKey: ['order', orderNumber],
-    queryFn: () => get<OrderResponse>(`/orders/${orderNumber}`),
+    queryKey: ['order', orderNumber, token],
+    queryFn: () =>
+      get<OrderResponse>(
+        `/orders/${orderNumber}`,
+        token ? { token } : undefined,
+      ),
     enabled: Boolean(orderNumber),
   })
 

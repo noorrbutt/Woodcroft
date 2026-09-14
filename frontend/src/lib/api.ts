@@ -215,6 +215,39 @@ export const put = <T>(path: string, body?: unknown) =>
 export const del = <T>(path: string, body?: unknown) =>
   api<T>(path, { method: 'DELETE', body })
 
+/**
+ * Download a file from an authenticated endpoint.
+ *
+ * A plain <a href> is a top-level navigation that cannot carry the in-memory
+ * access token, so it lands on a JSON error for any endpoint behind auth. This
+ * fetches with the token, then hands the blob to a programmatic anchor.
+ */
+export async function download(path: string, filename: string): Promise<void> {
+  const headers = new Headers()
+  if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
+  const url = path.startsWith('/api') ? path : `/api/v1${path}`
+
+  let response = await fetch(url, { headers })
+  if (response.status === 401 && auth.refreshToken && (await refreshOnce())) {
+    const retryHeaders = new Headers()
+    if (accessToken) retryHeaders.set('Authorization', `Bearer ${accessToken}`)
+    response = await fetch(url, { headers: retryHeaders })
+  }
+  if (!response.ok) {
+    throw new ApiError(response.status, 'download_failed', 'Could not download the file.')
+  }
+
+  const blob = await response.blob()
+  const objectUrl = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = objectUrl
+  anchor.download = filename
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(objectUrl)
+}
+
 /** Arrays repeat the key, which is what FastAPI's Query(list) expects. */
 export function buildQuery(params: Record<string, unknown>): string {
   const search = new URLSearchParams()

@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { FileUp, Plus } from 'lucide-react'
 
-import { ApiError, api, del, get, post, put } from '@/lib/api'
+import { ApiError, api, del, download, get, post, put } from '@/lib/api'
 import { cn } from '@/lib/cn'
 import { formatDate, formatDateTime, relativeTime } from '@/lib/format'
 import {
@@ -1002,9 +1002,13 @@ export function AdminImport() {
       <PageHeading
         title="Bulk import"
         action={
-          <a href="/api/v1/admin/products/export" className="wc-btn wc-btn-outline wc-btn-sm">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => download('/admin/products/export', 'products.csv')}
+          >
             Export current catalogue
-          </a>
+          </Button>
         }
       />
 

@@ -14,6 +14,9 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+import { auth, del, post } from '@/lib/api'
+import { queryClient } from '@/lib/queryClient'
+
 export interface PersonalizationValue {
   key: string
   label: string
@@ -167,26 +170,55 @@ export const useCartStore = create<CartState>()(
 /** Wishlist, same local-first shape. */
 interface WishlistState {
   slugs: string[]
-  toggle: (slug: string) => void
+  /** Toggle a product. Pass the id so the change can reach the server. */
+  toggle: (slug: string, productId?: string) => void
   has: (slug: string) => boolean
-  remove: (slug: string) => void
+  remove: (slug: string, productId?: string) => void
   clear: () => void
+  /** Replace the local set from the server list after sign-in. */
+  hydrate: (slugs: string[]) => void
 }
 
 export const useWishlistStore = create<WishlistState>()(
   persist(
     (set, get) => ({
       slugs: [],
-      toggle: (slug) =>
+      toggle: (slug, productId) => {
+        const adding = !get().slugs.includes(slug)
         set((state) => ({
-          slugs: state.slugs.includes(slug)
-            ? state.slugs.filter((entry) => entry !== slug)
-            : [...state.slugs, slug],
-        })),
+          slugs: adding
+            ? [...state.slugs, slug]
+            : state.slugs.filter((entry) => entry !== slug),
+        }))
+        // Persist to the server for signed-in shoppers, then refresh the account
+        // wishlist query. Guests keep a local-only list until they sign in.
+        if (productId && auth.isAuthenticated) {
+          const call = adding
+            ? post(`/wishlist/${productId}`)
+            : del(`/wishlist/${productId}`)
+          call
+            .then(() => queryClient.invalidateQueries({ queryKey: ['wishlist'] }))
+            .catch(() => {
+              // Roll the heart back if the server rejected the change.
+              set((state) => ({
+                slugs: adding
+                  ? state.slugs.filter((entry) => entry !== slug)
+                  : [...state.slugs, slug],
+              }))
+            })
+        }
+      },
       has: (slug) => get().slugs.includes(slug),
-      remove: (slug) =>
-        set((state) => ({ slugs: state.slugs.filter((entry) => entry !== slug) })),
+      remove: (slug, productId) => {
+        set((state) => ({ slugs: state.slugs.filter((entry) => entry !== slug) }))
+        if (productId && auth.isAuthenticated) {
+          del(`/wishlist/${productId}`)
+            .then(() => queryClient.invalidateQueries({ queryKey: ['wishlist'] }))
+            .catch(() => undefined)
+        }
+      },
       clear: () => set({ slugs: [] }),
+      hydrate: (slugs) => set({ slugs }),
     }),
     { name: 'wc-wishlist', version: 1 },
   ),

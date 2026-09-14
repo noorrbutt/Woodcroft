@@ -1,6 +1,6 @@
 /** Customer account: overview, orders, addresses, profile, wishlist, security. */
 
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, NavLink, Outlet, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -34,6 +34,7 @@ import {
   Textarea,
 } from '@/components/ui'
 import { useAuthStore } from '@/features/auth/store'
+import { useWishlistStore } from '@/features/cart/store'
 import { ProductGrid } from '@/features/catalog/ProductCard'
 import {
   PROVINCES,
@@ -990,12 +991,28 @@ export function AccountProfile() {
 
 /* ── Wishlist ────────────────────────────────────────────────────────────── */
 export function AccountWishlist() {
-  const { data: products = [], isLoading } = useQuery({
+  const hydrateWishlist = useWishlistStore((state) => state.hydrate)
+  const { data: products = [], isLoading, isError } = useQuery({
     queryKey: ['wishlist'],
     queryFn: () => get<ProductCard[]>('/wishlist'),
   })
 
+  // Sync the local heart state to what the server actually holds, so a fresh
+  // device shows the right pieces as saved.
+  useEffect(() => {
+    if (products.length) hydrateWishlist(products.map((p) => p.slug))
+  }, [products, hydrateWishlist])
+
   if (isLoading) return <Skeleton className="h-64 w-full" />
+  if (isError) {
+    return (
+      <EmptyState
+        icon={<Heart size={38} strokeWidth={1} />}
+        title="We could not load your wishlist"
+        description="Please refresh the page to try again."
+      />
+    )
+  }
 
   if (products.length === 0) {
     return (

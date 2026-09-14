@@ -462,7 +462,7 @@ function ProductBody({ slug }: { slug: string }) {
                   : 'Out of stock'}
             </Button>
             <button
-              onClick={() => toggleWishlist(product.slug)}
+              onClick={() => toggleWishlist(product.slug, product.id)}
               aria-label={wishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
               aria-pressed={wishlisted}
               className="flex size-11 items-center justify-center border border-control transition-colors hover:border-[var(--wc-border-strong)]"

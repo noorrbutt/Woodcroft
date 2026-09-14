@@ -43,7 +43,7 @@ import {
   Users,
 } from 'lucide-react'
 
-import { ApiError, get, patch, post, put } from '@/lib/api'
+import { ApiError, download, get, patch, post, put } from '@/lib/api'
 import { cn } from '@/lib/cn'
 import { formatDate, formatDateTime, relativeTime } from '@/lib/format'
 import {
@@ -419,9 +419,13 @@ function Orders() {
       <PageHeading
         title="Orders"
         action={
-          <a href="/api/v1/admin/orders/export" className="wc-btn wc-btn-outline wc-btn-sm">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => download('/admin/orders/export', 'orders.csv')}
+          >
             Export CSV
-          </a>
+          </Button>
         }
       />
 
