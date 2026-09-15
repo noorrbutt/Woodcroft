@@ -29,7 +29,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     /* Tabular figures are applied only where width must not shuffle (Price,
-       Rating, quantity, pagination, cart badge) — not globally, which would
+       Rating, quantity, pagination, cart badge) - not globally, which would
        force the display serif's editorial numerals into mechanical monospace
        slots. */
   }

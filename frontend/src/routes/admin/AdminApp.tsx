@@ -61,6 +61,7 @@ import {
 } from '@/components/ui'
 import { useChartColors } from '@/hooks/useChartColors'
 import { useAuthStore } from '@/features/auth/store'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { Wordmark } from '@/components/Layout'
 import {
   AdminBlog,
@@ -187,6 +188,7 @@ function AdminActivityBell() {
 
 function Shell({ children }: { children: ReactNode }) {
   const user = useAuthStore((state) => state.user)
+  useDocumentTitle('Woodcroft Admin')
 
   return (
     <div className="flex min-h-dvh bg-canvas">
@@ -851,7 +853,7 @@ function Products() {
           { key: 'rating', label: 'Rating', className: 'text-center',
             render: (row: any) => (
               <span className="tabular-nums text-xs text-muted">
-                {row.rating_average > 0 ? row.rating_average.toFixed(1) : '—'}
+                {row.rating_average > 0 ? row.rating_average.toFixed(1) : '-'}
               </span>
             ) },
           { key: 'status', label: 'Status',
@@ -1022,7 +1024,7 @@ function ProductImagesModal({ product, onClose }: { product: any; onClose: () =>
     <Modal
       open
       onClose={onClose}
-      title={`Images — ${product.name}`}
+      title={`Images - ${product.name}`}
       footer={<Button variant="ghost" onClick={onClose}>Done</Button>}
     >
       <p className="mb-4 text-sm text-muted">
@@ -1385,7 +1387,7 @@ function Notifications() {
             render: (row: any) => <span className="text-xs">{row.recipient}</span> },
           { key: 'subject', label: 'Subject',
             render: (row: any) => (
-              <span className="text-xs text-muted">{row.subject ?? '—'}</span>
+              <span className="text-xs text-muted">{row.subject ?? '-'}</span>
             ) },
           { key: 'status', label: 'Status',
             render: (row: any) => (

@@ -6,6 +6,7 @@ import { ArrowRight, Hammer, Leaf, Truck } from 'lucide-react'
 import { get, post } from '@/lib/api'
 import { cn } from '@/lib/cn'
 import { useReveal } from '@/hooks/useReveal'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { Button, SectionHeading, Skeleton } from '@/components/ui'
 import { ProductCard, ProductGrid } from '@/features/catalog/ProductCard'
 import type { Category, ProductList } from '@/lib/types'
@@ -316,7 +317,7 @@ function Story() {
     <section
       ref={ref}
       className="wc-reveal relative overflow-hidden"
-      /* The one deep-forest band on the page — the brand's third pillar, used
+      /* The one deep-forest band on the page - the brand's third pillar, used
          exactly once. Fixed in both themes, so its copy uses fixed forest
          tokens, never text-on-inverse (which would go dark in dark mode). */
       style={{ background: 'linear-gradient(160deg, var(--forest-700), var(--forest-800))' }}
@@ -368,7 +369,7 @@ function Story() {
               </blockquote>
             </div>
             <figcaption className="wc-eyebrow mt-8 !text-[var(--forest-200)]">
-              The drying yard — Surjani Town, Karachi
+              The drying yard - Surjani Town, Karachi
             </figcaption>
           </figure>
         </div>
@@ -439,6 +440,7 @@ function Newsletter() {
 }
 
 export function HomePage() {
+  useDocumentTitle('Woodcroft')
   return (
     <>
       <Hero />

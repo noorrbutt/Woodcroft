@@ -176,14 +176,14 @@ export function RegisterPage() {
             className="mt-0.5 size-4 shrink-0 accent-[var(--wc-accent)]"
           />
           <span>Send me occasional news and offers by email. You can unsubscribe
-          any time. (Optional — we will still send order updates.)</span>
+          any time. (Optional - we will still send order updates.)</span>
         </label>
         <Button type="submit" fullWidth loading={loading}>Create account</Button>
         <p className="text-xs text-faint">
           By creating an account you agree to our{' '}
           <Link to="/page/terms" className="wc-link">Terms</Link> and{' '}
           <Link to="/page/privacy" className="wc-link">Privacy Policy</Link>. We use
-          your details only to run your account and orders — see the{' '}
+          your details only to run your account and orders - see the{' '}
           <Link to="/page/privacy" className="wc-link">Privacy Policy</Link>.
         </p>
       </form>

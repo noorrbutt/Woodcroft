@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ============================================================================
-   Woodcroft — "Warm Atelier"
+   Woodcroft - "Warm Atelier"
    ----------------------------------------------------------------------------
    Light-first editorial luxury. Bone paper, walnut ink, deep forest, brass.
 
@@ -28,7 +28,7 @@
   --walnut-200: #E0D0BA;
   --walnut-300: #C9B294;
   --walnut-400: #A88C6B;
-  --walnut-500: #8A6B4C;  /* 3.40:1 on canvas — UI boundaries and 24px+ only */
+  --walnut-500: #8A6B4C;  /* 3.40:1 on canvas - UI boundaries and 24px+ only */
   --walnut-600: #6B5138;
   --walnut-700: #4A3527;
   --walnut-800: #33241A;
@@ -50,7 +50,7 @@
   --brass-100: #F4E6C8;
   --brass-200: #E8D09B;
   --brass-300: #DBB86E;
-  --brass-400: #C9963F;  /* 3.10:1 — decorative and 24px+ only */
+  --brass-400: #C9963F;  /* 3.10:1 - decorative and 24px+ only */
   --brass-500: #AC7C2C;
   --brass-600: #8A6122;
   --brass-700: #64461A;

@@ -129,14 +129,14 @@ export function AdminBlog() {
                 <p className="font-medium">{post.title}</p>
                 <p className="text-xs text-faint">/journal/{post.slug}</p>
               </td>
-              <td className="px-4 py-3 text-xs text-muted">{post.category ?? '—'}</td>
+              <td className="px-4 py-3 text-xs text-muted">{post.category ?? '-'}</td>
               <td className="px-4 py-3">
                 <Badge tone={post.is_published ? 'success' : 'neutral'}>
                   {post.is_published ? 'Published' : 'Draft'}
                 </Badge>
               </td>
               <td className="px-4 py-3 text-xs text-faint">
-                {post.published_at ? formatDate(post.published_at) : '—'}
+                {post.published_at ? formatDate(post.published_at) : '-'}
               </td>
               <td className="px-4 py-3 text-xs tabular-nums">{post.view_count}</td>
               <td className="px-4 py-3 text-right">
@@ -437,7 +437,7 @@ export function AdminCoupons() {
               </td>
               <td className="px-4 py-3 tabular-nums">{coupon.value_display}</td>
               <td className="px-4 py-3 text-xs tabular-nums text-muted">
-                {coupon.min_order_paisa ? coupon.min_order_display : '—'}
+                {coupon.min_order_paisa ? coupon.min_order_display : '-'}
               </td>
               <td className="px-4 py-3 text-xs tabular-nums">
                 {coupon.used_count}{coupon.usage_limit ? ` / ${coupon.usage_limit}` : ''}
@@ -602,7 +602,7 @@ export function AdminGiftCards() {
               <td className="px-4 py-3 tabular-nums text-muted">{card.spent}</td>
               <td className="px-4 py-3 tabular-nums font-medium">{card.balance}</td>
               <td className="px-4 py-3 text-xs text-muted">
-                {card.recipient_email ?? '—'}
+                {card.recipient_email ?? '-'}
               </td>
               <td className="px-4 py-3">
                 <Badge tone={
@@ -1075,7 +1075,7 @@ export function AdminImport() {
                 <ul className="max-h-32 space-y-1 overflow-y-auto text-xs">
                   {result.existing.slice(0, 30).map((row: any, i: number) => (
                     <li key={i}>
-                      <span className="font-mono">{row.sku}</span> — {row.product}
+                      <span className="font-mono">{row.sku}</span> - {row.product}
                     </li>
                   ))}
                 </ul>

@@ -33,6 +33,7 @@ import {
   Textarea,
 } from '@/components/ui'
 import { useAuthStore } from '@/features/auth/store'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import {
   lineTotalPaisa,
   linePersonalizationPaisa,
@@ -113,6 +114,7 @@ function useQuotePayload(province?: Province) {
 
 /* ── Cart ────────────────────────────────────────────────────────────────── */
 export function CartPage() {
+  useDocumentTitle('Woodcroft Cart')
   const lines = useCartStore((state) => state.lines)
   const updateQuantity = useCartStore((state) => state.updateQuantity)
   const remove = useCartStore((state) => state.remove)
@@ -411,6 +413,7 @@ function GiftCardField() {
 
 /* ── Checkout ────────────────────────────────────────────────────────────── */
 export function CheckoutPage() {
+  useDocumentTitle('Woodcroft Checkout')
   const navigate = useNavigate()
   const user = useAuthStore((state) => state.user)
   const lines = useCartStore((state) => state.lines)
@@ -589,7 +592,7 @@ export function CheckoutPage() {
                     <option value="">Enter a new address</option>
                     {savedAddresses.map((a) => (
                       <option key={a.id} value={a.id}>
-                        {a.label ? `${a.label} — ` : ''}{a.line1}, {a.city}
+                        {a.label ? `${a.label} - ` : ''}{a.line1}, {a.city}
                       </option>
                     ))}
                   </Select>
@@ -1031,18 +1034,18 @@ export function ComparePage() {
 
   const rows: { label: string; render: (p: ProductDetail) => React.ReactNode }[] = [
     { label: 'Price', render: (p) => <Price value={p.price} compareAt={p.compare_at_price} size="sm" /> },
-    { label: 'Timber', render: (p) => p.wood_species_label ?? '—' },
+    { label: 'Timber', render: (p) => p.wood_species_label ?? '-' },
     {
       label: 'Dimensions',
       render: (p) =>
         p.dimensions
-          ? `${p.dimensions.length_cm ?? '—'} × ${p.dimensions.width_cm ?? '—'} × ${p.dimensions.height_cm ?? '—'} cm`
-          : '—',
+          ? `${p.dimensions.length_cm ?? '-'} × ${p.dimensions.width_cm ?? '-'} × ${p.dimensions.height_cm ?? '-'} cm`
+          : '-',
     },
-    { label: 'Weight', render: (p) => (p.weight_g ? `${(p.weight_g / 1000).toFixed(1)} kg` : '—') },
+    { label: 'Weight', render: (p) => (p.weight_g ? `${(p.weight_g / 1000).toFixed(1)} kg` : '-') },
     { label: 'Rating', render: (p) => (p.rating_count ? `${p.rating_average} (${p.rating_count})` : 'No reviews') },
     { label: 'Availability', render: (p) => (p.is_in_stock ? 'In stock' : 'Out of stock') },
-    { label: 'Personalisation', render: (p) => p.personalization_options.map((o) => o.label).join(', ') || '—' },
+    { label: 'Personalisation', render: (p) => p.personalization_options.map((o) => o.label).join(', ') || '-' },
   ]
 
   return (

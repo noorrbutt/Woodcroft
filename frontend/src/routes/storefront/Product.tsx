@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Check, FileDown, Heart, Truck } from 'lucide-react'
 
 import { get } from '@/lib/api'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { cn } from '@/lib/cn'
 import { formatDimensions, formatPkr, formatWeight } from '@/lib/format'
 import {
@@ -107,8 +108,8 @@ function Gallery({ product }: { product: ProductDetail }) {
    as personalised and priced by the option's surcharge. */
 const DIMENSION_PRESETS = [
   { key: 'standard', label: 'Standard', value: '' },
-  { key: 'compact', label: 'Compact', value: 'Compact — about 10% smaller than standard' },
-  { key: 'large', label: 'Large', value: 'Large — about 10% larger than standard' },
+  { key: 'compact', label: 'Compact', value: 'Compact - about 10% smaller than standard' },
+  { key: 'large', label: 'Large', value: 'Large - about 10% larger than standard' },
   { key: 'custom', label: 'Custom size', value: null },
 ] as const
 
@@ -268,6 +269,8 @@ function ProductBody({ slug }: { slug: string }) {
     queryFn: () => get<ProductDetail>(`/products/${slug}`),
     enabled: Boolean(slug),
   })
+
+  useDocumentTitle(product ? `Woodcroft ${product.name}` : 'Woodcroft')
 
   const { data: related } = useQuery({
     queryKey: ['related', slug],

@@ -16,14 +16,14 @@ from __future__ import annotations
 # Facts the owner must confirm; surfaced verbatim so they are easy to find/replace.
 LEGAL_NAME = "[PLACEHOLDER: registered business / legal name]"
 ADDRESS = "[PLACEHOLDER: full registered address], Karachi, Sindh, Pakistan"
-NTN = "[PLACEHOLDER: NTN — and STRN if sales-tax registered]"
+NTN = "[PLACEHOLDER: NTN - and STRN if sales-tax registered]"
 PHONE = "[PLACEHOLDER: one real, working phone / WhatsApp number]"
 EMAIL = "hello@woodcroft.pk"
 RETURN_WINDOW = "[PLACEHOLDER: e.g. 7 days]"
 REFUND_METHOD = "[PLACEHOLDER: bank transfer / JazzCash / Easypaisa / cash]"
 REFUND_DAYS = "[PLACEHOLDER: e.g. 7–10 working days]"
 COURIERS = "[PLACEHOLDER: courier(s) used, e.g. TCS / Leopards / own fleet]"
-FOUNDED = "[PLACEHOLDER: founding year — publish only if accurate]"
+FOUNDED = "[PLACEHOLDER: founding year - publish only if accurate]"
 
 _DISCLAIMER = (
     '<p style="background:#f6efe2;border:1px solid #c9963f;padding:12px 14px;'
@@ -51,18 +51,18 @@ Prevention of Electronic Crimes Act 2016 and applicable Pakistani law.</p>
 
 <h2>What we collect</h2>
 <ul>
-  <li><strong>Order &amp; delivery details</strong> — your name, phone number,
+  <li><strong>Order &amp; delivery details</strong> - your name, phone number,
       delivery address and any landmark, and the items you ordered. These are
       required to fulfil a cash-on-delivery order.</li>
-  <li><strong>Account details</strong> — email, name, phone and a securely hashed
+  <li><strong>Account details</strong> - email, name, phone and a securely hashed
       password (we never store your password in plain text).</li>
-  <li><strong>Messages you send us</strong> — the contents of contact-form
+  <li><strong>Messages you send us</strong> - the contents of contact-form
       messages, support tickets, reviews and product questions.</li>
-  <li><strong>Newsletter</strong> — your email address, only if you subscribe.</li>
-  <li><strong>Technical data</strong> — for security we log the IP address,
+  <li><strong>Newsletter</strong> - your email address, only if you subscribe.</li>
+  <li><strong>Technical data</strong> - for security we log the IP address,
       device/browser (user-agent) and timestamps of sign-ins and sessions, and we
       record search terms you enter to improve results.</li>
-  <li><strong>On your device</strong> — see our
+  <li><strong>On your device</strong> - see our
       <a href="/page/cookies">Cookie &amp; Storage Notice</a>. We do not use
       advertising or analytics cookies or any third-party trackers.</li>
 </ul>
@@ -174,7 +174,7 @@ the affected item. [PLACEHOLDER: any product warranty you offer, and its terms.]
 
 <h2>Governing law and disputes</h2>
 <p>These terms are governed by the laws of Pakistan, and the courts at Karachi,
-Sindh have jurisdiction. We aim to resolve complaints directly first — please
+Sindh have jurisdiction. We aim to resolve complaints directly first - please
 contact us.</p>
 
 <h2>Changes</h2>
@@ -222,7 +222,7 @@ check the returned item, or after we confirm a fault. Store credit is offered
 only as an option you may choose, never in place of a cash refund you are owed.</p>
 
 <h2>Return shipping</h2>
-<p>[PLACEHOLDER: who pays return shipping — we cover it for faulty/wrong items;
+<p>[PLACEHOLDER: who pays return shipping - we cover it for faulty/wrong items;
 for change-of-mind returns state your policy.]</p>
 {_CONTACT_BLOCK}
 """
@@ -269,9 +269,9 @@ of this, no intrusive "accept cookies" banner is needed.</p>
 <p>To make the site work, we save a small amount of information in your browser's
 local storage. This stays on your device and is not shared with anyone:</p>
 <ul>
-  <li><strong>Sign-in token</strong> — keeps you logged in.</li>
-  <li><strong>Cart and wishlist</strong> — remembers items you added.</li>
-  <li><strong>Theme</strong> — remembers your light/dark preference.</li>
+  <li><strong>Sign-in token</strong> - keeps you logged in.</li>
+  <li><strong>Cart and wishlist</strong> - remembers items you added.</li>
+  <li><strong>Theme</strong> - remembers your light/dark preference.</li>
 </ul>
 
 <h2>Security logs</h2>
@@ -309,7 +309,7 @@ use your feedback to improve.</p>
 ABOUT = f"""
 <h1>About Woodcroft</h1>
 <p>Woodcroft is a workshop in Karachi making solid-timber furniture and woodware
-for people who intend to keep it. [PLACEHOLDER: your real story — founding year
+for people who intend to keep it. [PLACEHOLDER: your real story - founding year
 "{FOUNDED}" only if accurate, materials, and what makes your pieces yours.]</p>
 <p>Questions? Write to <a href="mailto:{EMAIL}">{EMAIL}</a> and a person will
 reply.</p>
@@ -319,7 +319,7 @@ reply.</p>
 SUSTAINABILITY = f"""
 <h1>Sustainability</h1>
 <p>[PLACEHOLDER: describe only sourcing and sustainability practices you can
-actually stand behind — avoid unverifiable claims such as "every board from a
+actually stand behind - avoid unverifiable claims such as "every board from a
 named mill" unless it is true and documented.]</p>
 <p>Questions? Write to <a href="mailto:{EMAIL}">{EMAIL}</a>.</p>
 """

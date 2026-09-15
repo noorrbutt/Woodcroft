@@ -6,6 +6,7 @@ import { SlidersHorizontal, X } from 'lucide-react'
 import { get } from '@/lib/api'
 import { formatPkr } from '@/lib/format'
 import { useFocusTrap } from '@/hooks/useFocusTrap'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import {
   Breadcrumbs,
   Button,
@@ -233,6 +234,14 @@ export function ShopPage() {
   const heading = query
     ? `Results for “${query}”`
     : (category?.name ?? 'The collection')
+
+  useDocumentTitle(
+    query
+      ? 'Woodcroft Search'
+      : category?.name
+        ? `Woodcroft ${category.name}`
+        : 'Woodcroft Shop',
+  )
 
   const makeHref = (target: number) => {
     const next = new URLSearchParams(params)

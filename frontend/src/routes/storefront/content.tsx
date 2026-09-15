@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { ApiError, get, post } from '@/lib/api'
 import { formatDate } from '@/lib/format'
 import { sanitizeHtml } from '@/lib/sanitize'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import {
   Accordion,
   Breadcrumbs,
@@ -48,6 +49,7 @@ interface Faq {
 }
 
 export function JournalPage() {
+  useDocumentTitle('Woodcroft Journal')
   const { data: posts, isLoading } = useQuery({
     queryKey: ['blog'],
     queryFn: () => get<Post[]>('/blog'),
@@ -201,6 +203,8 @@ export function StaticPageView() {
     enabled: Boolean(slug),
   })
 
+  useDocumentTitle(page?.title ? `Woodcroft ${page.title}` : 'Woodcroft')
+
   if (isLoading) {
     return (
       <div className="wc-container py-16">
@@ -231,6 +235,7 @@ export function StaticPageView() {
 }
 
 export function FaqPage() {
+  useDocumentTitle('Woodcroft FAQ')
   const { data: faqs = [], isLoading } = useQuery({
     queryKey: ['faq'],
     queryFn: () => get<Faq[]>('/faq'),
@@ -274,6 +279,7 @@ export function FaqPage() {
 }
 
 export function ContactPage() {
+  useDocumentTitle('Woodcroft Contact')
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
   const [sent, setSent] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
