@@ -144,16 +144,21 @@ def main() -> int:
         seeder.seed_categories()
         seeder.seed_products()
 
-        print("People")
-        seed_people(seeder)
+        # Demo accounts (incl. the known-password admin) and fabricated orders
+        # must never seed into production. Use scripts.create_admin for the real
+        # admin instead.
+        if not settings.is_production:
+            print("People")
+            seed_people(seeder)
 
         print("Promotions")
         seed_promotions(seeder)
 
-        print("Orders")
-        seed_orders(seeder, count=args.orders)
+        if not settings.is_production:
+            print("Orders")
+            seed_orders(seeder, count=args.orders)
 
-        print("Reviews and content")
+        print("Content and pages")
         seed_engagement(seeder)
 
         # Advance the reference-number sequences past the seeded rows so the

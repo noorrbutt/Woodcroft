@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
 
+from app.core.config import settings
 from app.models.cart import AbandonedCart, Cart, CartItem, WishlistItem
 from app.models.catalog import (
     BackInStockSubscription,
@@ -99,10 +100,16 @@ _SEED_DEMO = os.environ.get("WOODCROFT_SEED_DEMO", "").strip().lower() in {
 
 
 def seed_engagement(s) -> None:
+    # Static pages (incl. the legal pages), FAQ and marketing content are needed
+    # in production too.
+    _content(s)
+    if settings.is_production:
+        s.db.flush()
+        return
+    # Everything below is demo data or depends on seeded users.
     if _SEED_DEMO:
         _reviews(s)
         _questions(s)
-    _content(s)
     _carts_and_wishlists(s)
     _support(s)
     _outbox(s)

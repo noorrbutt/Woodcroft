@@ -79,7 +79,9 @@ app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
+    # Auth is a Bearer token in the Authorization header, not cookies, so
+    # credentialed CORS is unnecessary and needlessly permissive.
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["X-Guest-Token"],
