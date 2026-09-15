@@ -158,7 +158,7 @@ def _mix(a: tuple[int, int, int], b: tuple[int, int, int], t: float) -> tuple[in
     return tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(3))
 
 
-def render_placeholder(species: WoodSpecies, product_name: str) -> "Image.Image":
+def render_placeholder(species: WoodSpecies, product_name: str) -> Image.Image:
     """An honest, on-brand placeholder card labelled with the product.
 
     Real product photography is uploaded by an admin. Until then, showing a
@@ -213,7 +213,7 @@ def render_placeholder(species: WoodSpecies, product_name: str) -> "Image.Image"
     return base
 
 
-def placeholder_meta(rel_path: str, base: "Image.Image") -> dict:
+def placeholder_meta(rel_path: str, base: Image.Image) -> dict:
     """The ProductImage metadata for a rendered placeholder (no file I/O)."""
     return {
         "base_path": rel_path,
