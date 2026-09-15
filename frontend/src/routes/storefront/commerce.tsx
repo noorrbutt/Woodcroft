@@ -266,9 +266,18 @@ export function CartPage() {
             )}
             {quote && quote.discount.paisa > 0 && (
               <p className="mb-3 text-xs text-[var(--wc-success)]">
-                {quote.coupon_code} applied
+                {quote.coupon_code} applied, you save {quote.discount.display}
               </p>
             )}
+
+            <div className="mb-3">
+              <GiftCardField />
+              {quote?.gift_card_error && (
+                <p className="mt-2 text-xs text-[var(--wc-danger)]">
+                  That gift card code is not valid.
+                </p>
+              )}
+            </div>
 
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between">
@@ -291,6 +300,18 @@ export function CartPage() {
                 <div className="flex justify-between">
                   <dt className="text-muted">Gift wrap</dt>
                   <dd className="tabular-nums">{quote.gift_wrap.display}</dd>
+                </div>
+              )}
+              {quote && quote.gift_card_applied.paisa > 0 && (
+                <div className="flex justify-between text-[var(--wc-success)]">
+                  <dt>Gift card</dt>
+                  <dd className="tabular-nums">−{quote.gift_card_applied.display}</dd>
+                </div>
+              )}
+              {quote && quote.store_credit_applied.paisa > 0 && (
+                <div className="flex justify-between text-[var(--wc-success)]">
+                  <dt>Store credit</dt>
+                  <dd className="tabular-nums">−{quote.store_credit_applied.display}</dd>
                 </div>
               )}
               {quote && (
