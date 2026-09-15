@@ -138,14 +138,16 @@ async def _rate_limited(request, exc):
     )
 
 
-# Product images and generated media are served straight off disk. There is no
-# object store in this deployment, and for a catalogue this size a static mount
-# is both faster and simpler than proxying through the app.
-app.mount(
-    settings.MEDIA_URL,
-    StaticFiles(directory=str(settings.media_path), check_dir=False),
-    name="media",
-)
+# Product images and generated media are served straight off disk in dev. When
+# MEDIA_URL is an absolute URL (Cloudinary in production) there is nothing to
+# mount - the serverless filesystem is ephemeral and images are delivered from
+# the CDN instead, so skip the static mount entirely.
+if not settings.media_is_remote:
+    app.mount(
+        settings.MEDIA_URL,
+        StaticFiles(directory=str(settings.media_path), check_dir=False),
+        name="media",
+    )
 
 app.include_router(auth_router.router, prefix=settings.API_V1_PREFIX)
 app.include_router(catalog_router.router, prefix=settings.API_V1_PREFIX)
@@ -180,6 +182,50 @@ def readyz():
     except Exception:
         return JSONResponse(status_code=503, content={"status": "unavailable"})
     return {"status": "ready"}
+
+
+@app.get("/api/cron/run-jobs", tags=["meta"], include_in_schema=False)
+def run_scheduled_jobs(request: Request):
+    """Drain the background job queue once. Triggered by a scheduler.
+
+    On serverless there is no persistent worker, so a scheduler (Vercel Cron or
+    an external pinger) calls this to process due jobs: reservation sweeps,
+    abandoned-cart and back-in-stock notices, scheduled publishing. Guarded by
+    CRON_SECRET, accepted as an ``Authorization: Bearer`` header (Vercel Cron
+    sends this automatically) or a ``?key=`` query param. The handlers are
+    idempotent, so an occasional double-run is harmless.
+    """
+    from fastapi.responses import JSONResponse
+
+    secret = settings.CRON_SECRET
+    if not secret:
+        return JSONResponse(
+            status_code=503,
+            content={"error": {"code": "not_configured",
+                               "message": "CRON_SECRET is not set."}},
+        )
+    auth = request.headers.get("authorization", "")
+    supplied = auth[7:].strip() if auth.lower().startswith("bearer ") \
+        else request.query_params.get("key", "")
+    if supplied != secret:
+        return JSONResponse(
+            status_code=401,
+            content={"error": {"code": "unauthorized",
+                               "message": "Invalid cron secret."}},
+        )
+
+    from app.workers import jobs  # noqa: F401  (registers handlers)
+    from app.workers.runner import bootstrap_schedule, tick
+
+    bootstrap_schedule()
+    processed = 0
+    # Bounded drain so the request stays well within the function time limit.
+    for _ in range(25):
+        n = tick()
+        processed += n
+        if n == 0:
+            break
+    return {"status": "ok", "processed": processed}
 
 
 @app.get("/", tags=["meta"])

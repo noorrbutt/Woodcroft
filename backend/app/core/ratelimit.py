@@ -39,4 +39,8 @@ limiter = Limiter(
     key_func=_identify,
     default_limits=[],
     enabled=settings.APP_ENV != "test",
+    # In-memory by default (one process shares it). On serverless each function
+    # instance has its own memory, so point RATELIMIT_STORAGE_URI at Redis
+    # (e.g. Upstash) and the limits become shared and effective again.
+    storage_uri=settings.RATELIMIT_STORAGE_URI or "memory://",
 )

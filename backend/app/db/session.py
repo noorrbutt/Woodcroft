@@ -20,6 +20,11 @@ engine = create_engine(
     # pool is exhausted so the request returns a clean error under load.
     pool_recycle=1800,
     pool_timeout=10,
+    # psycopg3 uses server-side prepared statements once a query repeats, which
+    # breaks against a transaction-mode connection pooler (Neon's -pooler /
+    # PgBouncer). Disabling them costs almost nothing here and makes the pooled
+    # endpoint safe. Harmless on a direct connection too.
+    connect_args={"prepare_threshold": None},
     future=True,
 )
 

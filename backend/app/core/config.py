@@ -87,9 +87,18 @@ class Settings(BaseSettings):
 
     # ── Media ────────────────────────────────────────────────────────────────
     MEDIA_ROOT: str = "media"
+    #: Base for delivering media. "/media" serves from the local static mount in
+    #: dev; in production point it at the Cloudinary delivery prefix, e.g.
+    #: https://res.cloudinary.com/<cloud>/image/upload, and the static mount is
+    #: skipped automatically (the serverless filesystem is ephemeral).
     MEDIA_URL: str = "/media"
     SEED_IMAGE_MODE: Literal["generated", "curated"] = "generated"
     UNSPLASH_ACCESS_KEY: str = ""
+
+    # ── Cloudinary (media hosting for admin uploads) ───────────────────────────
+    CLOUDINARY_CLOUD_NAME: str = ""
+    CLOUDINARY_API_KEY: str = ""
+    CLOUDINARY_API_SECRET: str = ""
 
     # ── URLs ─────────────────────────────────────────────────────────────────
     #: Absolute base for links in emails. Defaults to the dev storefront;
@@ -107,12 +116,20 @@ class Settings(BaseSettings):
     ENABLE_BACKGROUND_WORKER: bool = True
     WORKER_POLL_SECONDS: int = 10
     STOCK_RESERVATION_TTL_MINUTES: int = 20
+    #: Shared secret required by the scheduled job-runner endpoint. On serverless
+    #: there is no long-lived worker, so a scheduler (Vercel Cron / GitHub
+    #: Actions) pings /api/cron/run-jobs with this secret to drain the queue.
+    CRON_SECRET: str = ""
 
     # ── Rate limits (slowapi syntax) ─────────────────────────────────────────
     RATE_LIMIT_LOGIN: str = "10/minute"
     RATE_LIMIT_REGISTER: str = "5/minute"
     RATE_LIMIT_PASSWORD_RESET: str = "3/minute"
     RATE_LIMIT_CHECKOUT: str = "20/minute"
+    #: slowapi/limits storage. Empty = in-memory (fine for one process). On
+    #: serverless each instance has its own memory, so point this at Redis
+    #: (e.g. rediss://default:<token>@host:6379) to share limits across them.
+    RATELIMIT_STORAGE_URI: str = ""
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
@@ -128,12 +145,32 @@ class Settings(BaseSettings):
         path = Path(self.MEDIA_ROOT)
         if not path.is_absolute():
             path = BACKEND_DIR / path
-        path.mkdir(parents=True, exist_ok=True)
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            # Read-only serverless filesystem. Media is served remotely there
+            # (MEDIA_URL is absolute), so a missing local dir is harmless.
+            pass
         return path
 
     @property
     def is_production(self) -> bool:
         return self.APP_ENV == "production"
+
+    @property
+    def cloudinary_enabled(self) -> bool:
+        """True when Cloudinary credentials are configured for admin uploads."""
+        return bool(
+            self.CLOUDINARY_CLOUD_NAME
+            and self.CLOUDINARY_API_KEY
+            and self.CLOUDINARY_API_SECRET
+        )
+
+    @property
+    def media_is_remote(self) -> bool:
+        """True when MEDIA_URL is an absolute URL (e.g. Cloudinary), so the
+        local static mount should be skipped."""
+        return self.MEDIA_URL.startswith(("http://", "https://"))
 
     def model_post_init(self, _context: object) -> None:
         """Refuse to start insecurely in production.

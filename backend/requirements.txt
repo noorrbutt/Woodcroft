@@ -33,3 +33,7 @@ Faker==40.38.0
 
 # ─── HTTP client (curated image fetch, tests) ─────────────────────────────────
 httpx==0.28.1
+
+# ─── Serverless deploy: shared rate-limit store + media hosting ────────────────
+redis==5.2.1
+cloudinary==1.44.0

@@ -164,6 +164,11 @@ def _bundles(s) -> None:
 
 
 def _gift_cards(s, now: datetime) -> None:
+    # These demo cards are addressed to seeded customers, who do not exist in
+    # production (real cards are issued when a customer buys one). Skip them
+    # there rather than crash on an empty customer list.
+    if not s.users:
+        return
     for i in range(8):
         code = f"WCGIFT{1000 + i}"
         if s.db.scalar(select(GiftCard).where(GiftCard.code == code)):

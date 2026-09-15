@@ -735,8 +735,6 @@ async def upload_product_image(
 
     Lets an admin replace the seeded placeholder with the actual product.
     """
-    from app.services.media.photos import write_upload
-
     product = db.get(Product, product_id)
     if product is None:
         raise NotFoundError("Product not found.")
@@ -753,7 +751,16 @@ async def upload_product_image(
     next_order = max((i.sort_order for i in existing), default=-1) + 1
     rel = f"products/{product.slug}/upload-{uuid.uuid4().hex[:8]}"
     try:
-        meta = write_upload(settings.media_path, rel, data)
+        # Cloudinary in production (the serverless filesystem is ephemeral), the
+        # local webp size family in dev. Both return the same metadata shape.
+        if settings.cloudinary_enabled:
+            from app.services.media.cloud import cloud_write_upload
+
+            meta = cloud_write_upload(rel, data)
+        else:
+            from app.services.media.photos import write_upload
+
+            meta = write_upload(settings.media_path, rel, data)
     except ValueError as exc:
         raise ValidationError(str(exc)) from exc
 

@@ -37,3 +37,7 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Seed-generated media served as static assets (not source)
+frontend/public/media/
+.vercel/
