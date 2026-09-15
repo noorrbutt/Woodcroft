@@ -1,5 +1,7 @@
 # Woodcroft
 
+[![CI](https://github.com/noorrbutt/Woodcroft/actions/workflows/ci.yml/badge.svg)](https://github.com/noorrbutt/Woodcroft/actions/workflows/ci.yml)
+
 A production e-commerce platform for a premium handcrafted wood furniture and
 woodware retailer in Pakistan. FastAPI and PostgreSQL on the back, React 19 and
 Vite on the front, with a customer storefront and a full admin panel served by a
@@ -12,7 +14,6 @@ inclusive and exclusive, and Cash on Delivery is the live payment method.
 |---|---|
 | Storefront | https://woodcroft.vercel.app |
 | Admin panel | https://woodcroft.vercel.app/admin |
-| Technical report | [`Woodcroft_Technical_Report.pdf`](Woodcroft_Technical_Report.pdf) (architecture, schema, security, CIA/ACID) |
 
 ---
 
@@ -167,8 +168,7 @@ silently stops working with no error.
 
 Woodcroft is designed as a container stack (Docker Compose: db, api, worker, web)
 and also runs entirely on serverless. The live deployment uses Vercel for both the
-frontend and the API, Neon for Postgres, Upstash for Redis, and a media CDN. Full
-details, including the security posture, are in the technical report.
+frontend and the API, Neon for Postgres, Upstash for Redis, and a media CDN.
 
 Serverless has no long-lived process and a read-only filesystem, so three parts of
 the container design are adapted, all controlled by environment variables:
@@ -249,8 +249,7 @@ cd backend
 reservation logic covered most heavily since everything downstream depends on
 them. The live deployment was also verified end to end: every endpoint exercised,
 the full Cash on Delivery purchase flow, admin CRUD across every content type,
-coupon and gift-card validation, rate limiting, and the security headers. The
-report documents what was checked.
+coupon and gift-card validation, rate limiting, and the security headers.
 
 ---
 
