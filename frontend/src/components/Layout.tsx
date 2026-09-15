@@ -26,6 +26,7 @@ import {
 import { cn } from '@/lib/cn'
 import { get } from '@/lib/api'
 import { useTheme, type Theme } from '@/hooks/useTheme'
+import { useFocusTrap } from '@/hooks/useFocusTrap'
 import { useAuthStore } from '@/features/auth/store'
 import { useCartStore } from '@/features/cart/store'
 import { CartDrawer } from '@/features/cart/CartDrawer'
@@ -204,6 +205,7 @@ function SearchBar({ onClose }: { onClose?: () => void }) {
 
 function Header() {
   const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useFocusTrap<HTMLElement>(menuOpen, () => setMenuOpen(false))
   const [cartOpen, setCartOpen] = useState(false)
   const location = useLocation()
   const user = useAuthStore((state) => state.user)
@@ -367,8 +369,11 @@ function Header() {
             tabIndex={-1}
           />
           <nav
+            ref={menuRef}
             className="absolute left-0 top-0 bottom-0 w-72 overflow-y-auto bg-surface p-5"
             aria-label="Mobile"
+            role="dialog"
+            aria-modal="true"
           >
             <div className="mb-6 flex items-center justify-between">
               <Wordmark className="text-lg" />

@@ -5,6 +5,7 @@ import { SlidersHorizontal, X } from 'lucide-react'
 
 import { get } from '@/lib/api'
 import { formatPkr } from '@/lib/format'
+import { useFocusTrap } from '@/hooks/useFocusTrap'
 import {
   Breadcrumbs,
   Button,
@@ -188,6 +189,7 @@ export function ShopPage() {
   const { slug } = useParams()
   const [params, setParams] = useSearchParams()
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const filterRef = useFocusTrap<HTMLDivElement>(filtersOpen, () => setFiltersOpen(false))
 
   const query = params.get('q') ?? undefined
   const page = Number(params.get('page') ?? 1)
@@ -384,7 +386,13 @@ export function ShopPage() {
             aria-label="Close filters"
             tabIndex={-1}
           />
-          <div className="absolute bottom-0 left-0 right-0 max-h-[80vh] overflow-y-auto bg-surface p-5">
+          <div
+            ref={filterRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Filters"
+            className="absolute bottom-0 left-0 right-0 max-h-[80vh] overflow-y-auto bg-surface p-5"
+          >
             <div className="mb-5 flex items-center justify-between">
               <h2 className="font-display text-lg">Filters</h2>
               <button onClick={() => setFiltersOpen(false)} aria-label="Close">
