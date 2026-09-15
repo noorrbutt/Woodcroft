@@ -8,7 +8,7 @@ calls the API on the same origin, so **everything must sit behind one host**.
 ## Prerequisites
 - A Linux host with Docker + Docker Compose.
 - A domain pointed at the host, and TLS (see step 6). COD name/address/phone and
-  login tokens travel in the clear without HTTPS — do not skip it.
+  login tokens travel in the clear without HTTPS - do not skip it.
 
 ## 1. Configure secrets
 From the repo root, create `./.env` (copy from `.env.example`) with **at least**:
@@ -43,9 +43,9 @@ docker compose exec api python -m app.seed --append
 ```
 In production this seeds only store settings, categories, products, promotions,
 the **legal pages** and FAQ. It **skips** all demo accounts, fabricated orders,
-reviews, testimonials and the known-password admin — those exist in dev only.
+reviews, testimonials and the known-password admin - those exist in dev only.
 
-## 5. Create the real admin (securely — no hardcoded password)
+## 5. Create the real admin (securely - no hardcoded password)
 ```
 docker compose exec \
   -e WOODCROFT_ADMIN_EMAIL=you@your-domain.pk \
@@ -68,13 +68,13 @@ curl -f https://your-domain.pk/api/v1/health   # or /readyz on the api
 - Sign in as the admin, place a test COD order, confirm it appears in Admin →
   Orders and the activity bell.
 
-## Before you go live — checklist
+## Before you go live - checklist
 - [ ] `./.env` has strong, unique `SECRET_KEY` and `DB_PASSWORD`; `PUBLIC_URL` is https.
 - [ ] TLS terminating in front; api port 8000 not exposed.
 - [ ] Admin created via `create_admin` (no demo logins exist in prod).
-- [ ] **Replace the hero image** `backend/scripts/assets/bedroom_hero.jpg` — its
-      licence is unresolved (see `NOTICES.md`). *Note: the current hero uses the
-      warm-room `showroom_*.webp` image; confirm its licence too.*
+- [ ] Image licences: product photos, category images and the hero are from
+      Pexels (free for commercial use); the logo is owner-supplied - confirm you
+      own it. See `NOTICES.md`. (No unlicensed images ship.)
 - [ ] Fill every `[PLACEHOLDER]` in the legal pages (Admin → Content) and have a
       lawyer review them; add real business name, address, NTN.
 - [ ] Reconcile the tax label with your sales-tax (STRN) status.
@@ -82,7 +82,7 @@ curl -f https://your-domain.pk/api/v1/health   # or /readyz on the api
 
 ## Notes
 - **Email/SMS**: default `EMAIL_DRIVER=outbox` writes rendered messages to the DB
-  (Admin → Notifications) — nothing is actually sent until real SMTP/SMS creds are
+  (Admin → Notifications) - nothing is actually sent until real SMTP/SMS creds are
   configured. Set `EMAIL_DRIVER=smtp` + `SMTP_*` when ready.
 - **Background worker**: runs as its own service (abandoned-cart, back-in-stock,
   scheduled publish). Keep it to one replica.
