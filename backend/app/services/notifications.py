@@ -44,7 +44,7 @@ _env = SandboxedEnvironment(
     trim_blocks=True,
     lstrip_blocks=True,
 )
-# Templates render money through the same function the API and PDFs use.
+# Templates render money through the same function the API uses.
 _env.filters["pkr"] = lambda paisa: format_pkr(paisa or 0)
 
 

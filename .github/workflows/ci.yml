@@ -15,7 +15,8 @@ jobs:
   backend:
     name: Backend (lint, tests, migrations)
     runs-on: ubuntu-latest
-    # Match the runtime the backend deploys on (see backend/Dockerfile).
+    # Match the PostgreSQL major the schema targets: primary keys default to
+    # the native uuidv7(), which is an 18+ builtin.
     services:
       postgres:
         image: postgres:18
@@ -56,11 +57,11 @@ jobs:
         run: pytest
 
       - name: Migrations apply on a fresh database and match the models
-        # The Dockerfile runs `alembic upgrade head` at container start, so the
-        # chain must build the schema from empty (the test suite uses create_all
-        # and never exercises this). `alembic check` then fails the build if a
-        # model changed without a matching migration, which would otherwise ship
-        # a production-only schema gap while tests stay green.
+        # A deployment applies the migration chain to reach the schema, so the
+        # chain must build it from empty (the test suite uses create_all and
+        # never exercises this). `alembic check` then fails the build if a model
+        # changed without a matching migration, which would otherwise ship a
+        # production-only schema gap while the tests stay green.
         run: |
           python - <<'PY'
           import psycopg

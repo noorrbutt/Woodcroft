@@ -24,16 +24,6 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-#: Extensions are created by scripts/db_create.ps1, not by a migration, so
-#: autogenerate must not try to manage the tables they install.
-EXCLUDED_TABLES = {"spatial_ref_sys"}
-
-
-def include_object(obj, name, type_, reflected, compare_to) -> bool:
-    if type_ == "table" and name in EXCLUDED_TABLES:
-        return False
-    return True
-
 
 def run_migrations_offline() -> None:
     context.configure(
@@ -43,7 +33,6 @@ def run_migrations_offline() -> None:
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
         compare_server_default=True,
-        include_object=include_object,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -60,7 +49,6 @@ def run_migrations_online() -> None:
             target_metadata=target_metadata,
             compare_type=True,
             compare_server_default=True,
-            include_object=include_object,
             # Native enums are created and dropped explicitly in migrations;
             # letting Alembic infer them produces churn on every autogenerate.
             render_as_batch=False,

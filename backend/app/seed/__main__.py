@@ -174,14 +174,15 @@ def main() -> int:
 
     elapsed = time.perf_counter() - started
     print(f"\nDone in {elapsed:.1f}s\n")
-    print("Sign in with:")
-    for email, _name, role, password in DEMO_ACCOUNTS:
-        print(f"  {role.value:9} {email:26} {password}")
-    print()
-    print("  Storefront  http://localhost:5173")
-    print("  Admin       http://localhost:5173/admin")
-    print("  API docs    http://localhost:8000/docs")
-    print()
+    if not settings.is_production:
+        print("Sign in with:")
+        for email, _name, role, password in DEMO_ACCOUNTS:
+            print(f"  {role.value:9} {email:26} {password}")
+        print()
+        print("  Storefront  http://localhost:5173")
+        print("  Admin       http://localhost:5173/admin")
+        print("  API docs    http://localhost:8000/docs")
+        print()
     return 0
 
 

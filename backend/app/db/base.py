@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
 
 from sqlalchemy import DateTime, MetaData, text
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
@@ -68,6 +67,3 @@ class BaseModel(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     """Convenience base for the common case: UUIDv7 PK + timestamps."""
 
     __abstract__ = True
-
-    def to_dict(self) -> dict[str, Any]:
-        return {c.name: getattr(self, c.name) for c in self.__table__.columns}

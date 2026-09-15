@@ -1,90 +1,173 @@
 # Deploying Woodcroft
 
-Woodcroft ships as a Docker Compose stack: **db** (PostgreSQL 18), **api**
-(FastAPI), **worker** (background jobs), and **web** (the built React app served
-by nginx, which also reverse-proxies `/api` and `/media` to the api). The SPA
-calls the API on the same origin, so **everything must sit behind one host**.
+Woodcroft runs on managed, serverless infrastructure: the API and the storefront
+are separate deployments, Postgres and Redis are managed services, and images are
+served from a CDN. The live deployment uses Vercel, Neon, Upstash and Cloudinary,
+but nothing in the application is tied to those vendors — the whole adaptation is
+driven by the environment variables listed below.
 
-## Prerequisites
-- A Linux host with Docker + Docker Compose.
-- A domain pointed at the host, and TLS (see step 6). COD name/address/phone and
-  login tokens travel in the clear without HTTPS - do not skip it.
+| Piece | What it is | Source |
+|---|---|---|
+| API | FastAPI as a serverless function | `backend/`, `backend/vercel.json` |
+| Storefront | The built React bundle, static | `frontend/`, `frontend/vercel.json` |
+| Database | Managed PostgreSQL 18, pooled endpoint | `DATABASE_URL` |
+| Rate-limit store | Managed Redis | `RATELIMIT_STORAGE_URI` |
+| Media | CDN delivery prefix, Cloudinary uploads | `MEDIA_URL`, `CLOUDINARY_*` |
+| Job queue | `job_queue` table, drained on a schedule | `GET /api/cron/run-jobs` |
 
-## 1. Configure secrets
-From the repo root, create `./.env` (copy from `.env.example`) with **at least**:
+## What serverless changes
 
-```
-SECRET_KEY=<48+ random chars>      # python -c "import secrets;print(secrets.token_urlsafe(48))"
-DB_PASSWORD=<strong password>      # not 'woodcroft'
-PUBLIC_URL=https://your-domain.pk  # https, no trailing slash, NOT localhost
-EMAIL_DRIVER=outbox                # emails are written to the DB outbox until real SMTP is set
-```
+There is no long-lived process and the filesystem is read-only, so three parts of
+the design adapt. All three are configuration, not code paths:
 
-Compose refuses to start without `SECRET_KEY`, `DB_PASSWORD` and `PUBLIC_URL`.
-The api boots in `APP_ENV=production` (set by compose), which **fail-closes**:
-it will not start with a placeholder `SECRET_KEY`, `DEBUG=true`, or a localhost
-CORS origin, and it turns `/docs`, `/redoc` and `/openapi.json` off.
+| Concern | Single long-running process | Serverless |
+|---|---|---|
+| Background worker | asyncio task polling the queue (`ENABLE_BACKGROUND_WORKER=true`) | `false`, and a scheduler calls `/api/cron/run-jobs` |
+| Rate limiting | in-process memory | `RATELIMIT_STORAGE_URI` at Redis, so limits are shared across instances |
+| Media | local disk under `MEDIA_ROOT` | `MEDIA_URL` at the CDN; admin uploads go to Cloudinary |
 
-## 2. Build and start
-```
-docker compose up -d --build
-```
+---
 
-## 3. Apply migrations
-```
-docker compose exec api python -m alembic upgrade head
-docker compose exec api python -m alembic current   # expect the latest head
-```
-(The db container auto-installs the required Postgres extensions on first boot.)
+## 1. Provision the database
 
-## 4. Seed the essential store data (NO demo data in production)
-```
-docker compose exec api python -m app.seed --append
-```
-In production this seeds only store settings, categories, products, promotions,
-the **legal pages** and FAQ. It **skips** all demo accounts, fabricated orders,
-reviews, testimonials and the known-password admin - those exist in dev only.
+Create a PostgreSQL 18 database and install the extensions the schema needs:
 
-## 5. Create the real admin (securely - no hardcoded password)
-```
-docker compose exec \
-  -e WOODCROFT_ADMIN_EMAIL=you@your-domain.pk \
-  -e WOODCROFT_ADMIN_PASSWORD='<strong 10+ char password>' \
-  api python -m scripts.create_admin
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS citext;
+CREATE EXTENSION IF NOT EXISTS unaccent;
+CREATE EXTENSION IF NOT EXISTS btree_gin;
 ```
 
-## 6. Put TLS in front
-Terminate HTTPS with Caddy, nginx+certbot, a cloud load balancer, or Cloudflare,
-forwarding `443 -> web:80`. Keep it single-origin so `/api` and `/media` still
-proxy correctly. **Never publish the api's port 8000 directly.** Set
-`PUBLIC_URL`/`CORS_ORIGINS` to the https origin.
+Two things to get right:
+
+- **Use the pooled connection endpoint.** The engine already disables psycopg's
+  server-side prepared statements (`prepare_threshold=None`), which is what makes
+  a transaction-mode pooler safe.
+- **PostgreSQL 18 or newer.** Primary keys default to the native `uuidv7()`. On an
+  older server, install an RFC 9562 pl/pgSQL `uuidv7()` shim before migrating; it
+  is behaviourally identical.
+
+## 2. Configure the API
+
+Set these on the API deployment. Everything else has a working default; see
+[`.env.example`](.env.example) for the full list.
+
+```
+APP_ENV=production
+DEBUG=false
+SECRET_KEY=<48+ random chars>        # python -c "import secrets;print(secrets.token_urlsafe(48))"
+DATABASE_URL=postgresql+psycopg://...   # pooled endpoint, +psycopg driver
+PUBLIC_URL=https://your-domain.pk    # https, no trailing slash, NOT localhost
+CORS_ORIGINS=https://your-domain.pk
+ENABLE_BACKGROUND_WORKER=false
+RATELIMIT_STORAGE_URI=rediss://default:<token>@<host>:6379
+MEDIA_URL=https://res.cloudinary.com/<cloud>/image/upload
+CLOUDINARY_CLOUD_NAME=...
+CLOUDINARY_API_KEY=...
+CLOUDINARY_API_SECRET=...
+CRON_SECRET=<random string>
+EMAIL_DRIVER=outbox                  # 'smtp' once real SMTP_* credentials exist
+```
+
+With `APP_ENV=production` the app **fail-closes** at startup: it refuses to boot
+with a placeholder or short `SECRET_KEY`, with `DEBUG=true`, or with a localhost
+CORS origin, and it serves `/docs`, `/redoc` and `/openapi.json` as 404.
+
+## 3. Migrate and seed, from your machine
+
+Run these against the production database from somewhere that can reach it — not
+from the serverless function, which would time out.
+
+```powershell
+cd backend
+$env:DATABASE_URL = "postgresql+psycopg://...";  $env:APP_ENV = "production"
+.\.venv\Scripts\python.exe -m alembic upgrade head
+.\.venv\Scripts\python.exe -m app.seed --append
+```
+
+In `APP_ENV=production` the seeder lays down only store settings, categories,
+products, promotions, legal pages and FAQ. It **skips** every demo account,
+fabricated order, review and testimonial — those exist in development only.
+
+## 4. Create the real admin
+
+There are no default logins in production.
+
+```powershell
+$env:WOODCROFT_ADMIN_EMAIL = "you@your-domain.pk"
+$env:WOODCROFT_ADMIN_PASSWORD = "<strong 10+ char password>"
+.\.venv\Scripts\python.exe -m scripts.create_admin
+```
+
+## 5. Deploy the storefront
+
+The frontend is a static bundle (`npm run build`) plus two pieces of host
+configuration, both in [`frontend/vercel.json`](frontend/vercel.json):
+
+- **Rewrites.** `/api/*` proxies to the API deployment, and everything else falls
+  back to `index.html` so client routing survives a hard refresh of
+  `/product/...` or `/admin/...`. Keeping the API on the same origin is what lets
+  the client work with no base URL and no credentialed CORS.
+- **Security headers,** including the storefront CSP. The API sets its own strict
+  CSP on JSON responses; this one covers the HTML shell that runs the bundle.
+
+If you change the inline theme script in `frontend/index.html`, its `sha256-`
+hash in the `script-src` directive must be updated to match, or the script is
+blocked and the page loads with a flash of the wrong theme.
+
+## 6. Schedule the job queue
+
+With no persistent worker, a scheduler drains the queue: reservation sweeps,
+abandoned-cart and back-in-stock notices, scheduled publishing, flash sales.
+
+```
+GET https://<api-host>/api/cron/run-jobs
+Authorization: Bearer <CRON_SECRET>
+```
+
+`backend/vercel.json` declares this as a daily cron. Any scheduler works — the
+secret is also accepted as `?key=`. Handlers are idempotent, so an occasional
+double-run is harmless. Without `CRON_SECRET` set, the endpoint returns 503 and
+the queue never drains.
 
 ## 7. Verify
-```
-curl -f https://your-domain.pk/          # storefront loads
-curl -f https://your-domain.pk/api/v1/health   # or /readyz on the api
-```
-- Confirm `/docs` and `/openapi.json` return 404 (docs are off in production).
-- Sign in as the admin, place a test COD order, confirm it appears in Admin →
-  Orders and the activity bell.
 
-## Before you go live - checklist
-- [ ] `./.env` has strong, unique `SECRET_KEY` and `DB_PASSWORD`; `PUBLIC_URL` is https.
-- [ ] TLS terminating in front; api port 8000 not exposed.
-- [ ] Admin created via `create_admin` (no demo logins exist in prod).
-- [ ] Image licences: product photos, category images and the hero are from
-      Pexels (free for commercial use); the logo is owner-supplied - confirm you
-      own it. See `NOTICES.md`. (No unlicensed images ship.)
-- [ ] Fill every `[PLACEHOLDER]` in the legal pages (Admin → Content) and have a
-      lawyer review them; add real business name, address, NTN.
-- [ ] Reconcile the tax label with your sales-tax (STRN) status.
-- [ ] Back up the `db-data` volume regularly.
+```
+curl -f https://your-domain.pk/                       # storefront loads
+curl -f https://<api-host>/health                     # {"status":"ok"}
+curl -f https://<api-host>/readyz                     # {"status":"ready"} — proves the DB is reachable
+curl -i https://<api-host>/docs                       # expect 404 in production
+```
+
+Then sign in as the admin, place a test COD order, and confirm it appears under
+Admin → Orders and in the activity bell.
+
+---
+
+## Before you go live
+
+- [ ] `SECRET_KEY` is strong and unique; `PUBLIC_URL` and `CORS_ORIGINS` are the
+      real https origin.
+- [ ] `RATELIMIT_STORAGE_URI` points at Redis. Without it every function instance
+      keeps its own buckets and the limits multiply.
+- [ ] `CRON_SECRET` is set and the schedule is firing.
+- [ ] Admin created via `create_admin`; no demo logins exist.
+- [ ] Every `[PLACEHOLDER]` in the legal pages (Admin → Content) is filled in,
+      with a real business name, address and NTN, and reviewed by a lawyer.
+- [ ] The tax label matches your sales-tax (STRN) status.
+- [ ] Image licences confirmed — see [`NOTICES.md`](NOTICES.md).
+- [ ] Database backups are on.
 
 ## Notes
-- **Email/SMS**: default `EMAIL_DRIVER=outbox` writes rendered messages to the DB
-  (Admin → Notifications) - nothing is actually sent until real SMTP/SMS creds are
-  configured. Set `EMAIL_DRIVER=smtp` + `SMTP_*` when ready.
-- **Background worker**: runs as its own service (abandoned-cart, back-in-stock,
-  scheduled publish). Keep it to one replica.
-- **Scaling**: the rate limiter is in-process; keep `uvicorn --workers 1` per api
-  container (scale by adding a shared Redis `storage_uri`, not more workers).
+
+- **Email and SMS.** The default `outbox` driver renders every message and stores
+  it (Admin → Notifications) without sending. Nothing goes out until
+  `EMAIL_DRIVER=smtp` and the `SMTP_*` credentials are set. The row is written
+  either way, so the outbox doubles as an audit trail.
+- **Running it as a long-lived process instead.** If you deploy the API to a VM or
+  a container platform rather than a function, leave
+  `ENABLE_BACKGROUND_WORKER=true` and the worker runs in the app's lifespan. Run
+  exactly one process in that case: the worker would otherwise fire each job once
+  per process, and the in-memory rate limiter would multiply its limits. Scale out
+  by setting `RATELIMIT_STORAGE_URI` first.

@@ -27,7 +27,7 @@ def rupees_to_paisa(rupees: float | int | str | Decimal) -> Paisa:
 
 
 def paisa_to_rupees(paisa: Paisa) -> Decimal:
-    """Exact decimal rupee value. For display and PDF rendering only."""
+    """Exact decimal rupee value. For CSV exports and any decimal rendering."""
     return (Decimal(paisa) / PAISA_PER_RUPEE).quantize(Decimal("0.01"))
 
 
@@ -74,7 +74,7 @@ def format_pkr(paisa: Paisa, *, with_decimals: bool = False) -> str:
     Deliberately does NOT use ``Intl``-style currency formatting or locale
     currency symbols: the PKR symbol renders inconsistently as 'PKR', 'Rs' or
     '₨' depending on the ICU version and platform. The prefix is hardcoded so
-    backend PDFs and the frontend always agree.
+    the API, the email templates and the frontend always agree.
 
     >>> format_pkr(2_499_900)
     'Rs 24,999'

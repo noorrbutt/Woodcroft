@@ -40,9 +40,9 @@ and store settings including the tax-mode switch.
 
 | Layer | Choices |
 |---|---|
-| Backend | FastAPI, SQLAlchemy 2.0 (typed models), Alembic, Pydantic v2, psycopg 3, PyJWT, argon2-cffi, slowapi, Pillow, reportlab, bleach |
-| Frontend | React 19, Vite 7, TypeScript, Tailwind CSS v4, TanStack Query, Zustand, react-router 7, react-hook-form + zod, Framer Motion, Recharts |
-| Data and services | PostgreSQL, Redis (rate limiting), a media CDN, and a DB-backed job queue (no Celery, no broker) |
+| Backend | FastAPI, SQLAlchemy 2.0 (typed models), Alembic, Pydantic v2, psycopg 3, PyJWT, argon2-cffi, slowapi, Jinja2, Pillow, bleach |
+| Frontend | React 19, Vite 7, TypeScript, Tailwind CSS v4, TanStack Query, Zustand, react-router 7, Recharts, DOMPurify |
+| Data and services | PostgreSQL 18, Redis (rate limiting), a media CDN, and a DB-backed job queue (no Celery, no broker) |
 
 The backend is layered strictly: routers validate, services hold the business
 logic, and typed models own the data. A single pricing engine is the only code
@@ -166,37 +166,26 @@ silently stops working with no error.
 
 ## Deployment
 
-Woodcroft is designed as a container stack (Docker Compose: db, api, worker, web)
-and also runs entirely on serverless. The live deployment uses Vercel for both the
-frontend and the API, Neon for Postgres, Upstash for Redis, and a media CDN.
+The live deployment is serverless: the API and the storefront are separate
+deployments on Vercel, Postgres is Neon, Redis is Upstash, and images come off a
+CDN. None of that is baked in — the whole adaptation is environment variables.
 
 Serverless has no long-lived process and a read-only filesystem, so three parts of
-the container design are adapted, all controlled by environment variables:
+the design adapt:
 
-| Concern | Container design | Serverless |
+| Concern | Long-running process | Serverless |
 |---|---|---|
-| Background worker | asyncio worker polling the job queue | `ENABLE_BACKGROUND_WORKER=false`; a secret-guarded `GET /api/cron/run-jobs` drains the queue on a schedule |
-| Rate limiting | in-process (single uvicorn worker) | `RATELIMIT_STORAGE_URI` points at Redis, so limits are shared across function instances |
-| Media | local disk served by nginx | `MEDIA_URL` points at the CDN; admin uploads push to Cloudinary |
+| Background worker | asyncio task polling the job queue | `ENABLE_BACKGROUND_WORKER=false`; a secret-guarded `GET /api/cron/run-jobs` drains the queue on a schedule |
+| Rate limiting | in-process memory | `RATELIMIT_STORAGE_URI` points at Redis, so limits are shared across instances |
+| Media | local disk under `MEDIA_ROOT` | `MEDIA_URL` points at the CDN; admin uploads push to Cloudinary |
 
-A few notes for anyone taking this to production:
+In `APP_ENV=production` the app fail-closes on a weak `SECRET_KEY`, `DEBUG=true`,
+or a localhost CORS origin, and it turns the API docs off. The seed lays down only
+store settings, categories, products, promotions, legal pages and FAQ — never demo
+accounts or fabricated orders — and the real admin is created separately with
+`python -m scripts.create_admin`.
 
-- The API function needs a strong `SECRET_KEY`, the pooled database URL, the Redis
-  URL, the CDN base and credentials, and a `CRON_SECRET`. In `APP_ENV=production`
-  the app fail-closes on a weak secret, `DEBUG=true`, or a localhost CORS origin.
-- Run migrations and the seed once from a machine that can reach the database, not
-  from the serverless function, which would time out. In production the seed skips
-  all demo accounts and fabricated data and lays down only store settings,
-  categories, products, promotions, legal pages and FAQ.
-- Create the real admin with `python -m scripts.create_admin` using
-  `WOODCROFT_ADMIN_EMAIL` and `WOODCROFT_ADMIN_PASSWORD`. There are no default
-  logins in production.
-- If the managed Postgres is older than 18, install a `uuidv7()` function before
-  migrating (an RFC 9562 pl/pgSQL shim works and is behaviourally identical), and
-  use the pooled connection endpoint with server-side prepared statements
-  disabled.
-
-See [`DEPLOY.md`](DEPLOY.md) for the Docker Compose path.
+See [`DEPLOY.md`](DEPLOY.md) for the full runbook.
 
 ---
 
@@ -212,7 +201,7 @@ are most likely to touch:
 | `EMAIL_DRIVER` | `outbox` | `smtp` to send for real. |
 | `MEDIA_URL` | `/media` | An absolute CDN URL in production; the local static mount is skipped when it is remote. |
 | `RATELIMIT_STORAGE_URI` | empty | Empty is in-memory. Point at Redis on serverless. |
-| `SEED_IMAGE_MODE` | `generated` | `curated` fetches photographs and needs an access key. |
+| `SEED_IMAGE_MODE` | `generated` | `curated` fetches photographs and needs `PEXELS_API_KEY`. |
 | `ENABLE_BACKGROUND_WORKER` | `true` | Off during tests and on serverless. |
 
 ---

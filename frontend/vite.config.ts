@@ -21,9 +21,8 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          // Admin pulls in charts and tables the storefront never needs.
+          // Admin pulls in the charting library the storefront never needs.
           charts: ['recharts'],
-          motion: ['framer-motion'],
         },
       },
     },

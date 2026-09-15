@@ -23,7 +23,7 @@ from sqlalchemy.dialects.postgresql import CITEXT
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.permissions import Permission, Role
+from app.core.permissions import Permission, Role, permissions_for
 from app.db.base import BaseModel
 from app.models.enums import AddressType, PakistanProvince
 
@@ -117,11 +117,7 @@ class User(BaseModel):
         return {g.permission for g in self.permission_grants}
 
     def has_permission(self, permission: Permission) -> bool:
-        if self.role is Role.ADMIN:
-            return True
-        if self.role is Role.STAFF:
-            return permission.value in self.granted_permissions
-        return False
+        return permission in permissions_for(self.role, self.granted_permissions)
 
 
 class StaffPermissionGrant(BaseModel):

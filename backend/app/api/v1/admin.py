@@ -23,6 +23,7 @@ from app.core.deps import DbSession, require_permission
 from app.core.errors import NotFoundError, ValidationError
 from app.core.money import format_pkr, paisa_to_rupees
 from app.core.permissions import Permission
+from app.core.sanitize import csv_cell
 from app.models.catalog import Category, Product, ProductImage, ProductVariant
 from app.models.content import SupportTicket
 from app.models.enums import (
@@ -50,6 +51,7 @@ from app.models.promotion import Coupon, CouponRedemption, GiftCardTransaction
 from app.models.review import Review, ReviewReply
 from app.schemas.common import Message, Money, Page, Schema
 from app.services import notifications
+from app.services.audit import audit
 from app.services.order_ops import (
     assert_order_transition,
     credit_loyalty_on_delivery,
@@ -60,27 +62,6 @@ from app.services.order_ops import (
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 FULFILLED = (OrderStatus.DELIVERED, OrderStatus.SHIPPED, OrderStatus.OUT_FOR_DELIVERY)
-
-
-def audit(
-    db,
-    actor: User,
-    *,
-    action: str,
-    entity_type: str,
-    entity_id: uuid.UUID | None,
-    summary: str,
-    changes: dict | None = None,
-) -> None:
-    db.add(AuditLog(
-        actor_id=actor.id,
-        actor_email=actor.email,
-        action=action,
-        entity_type=entity_type,
-        entity_id=entity_id,
-        summary=summary,
-        changes=changes or {},
-    ))
 
 
 # ── Dashboard ────────────────────────────────────────────────────────────────
@@ -442,19 +423,6 @@ def refund_order(
     return Message(message=f"Refunded {format_pkr(payload.amount_paisa)}.")
 
 
-def _csv_cell(value: object) -> str:
-    """Neutralise spreadsheet formula injection in customer-supplied text.
-
-    Excel and Sheets evaluate a cell that starts with =, +, -, @, tab or CR as a
-    formula. A customer whose name is =HYPERLINK(...) would otherwise run code on
-    the workstation of any admin who opens the export.
-    """
-    text = "" if value is None else str(value)
-    if text[:1] in ("=", "+", "-", "@", "\t", "\r"):
-        return "'" + text
-    return text
-
-
 @router.get("/orders/export")
 def export_orders(
     db: DbSession,
@@ -474,8 +442,8 @@ def export_orders(
         writer.writerow([
             order.order_number,
             order.placed_at.date().isoformat(),
-            _csv_cell(order.shipping_name),
-            _csv_cell(order.shipping_city),
+            csv_cell(order.shipping_name),
+            csv_cell(order.shipping_city),
             order.shipping_province.label,
             order.status.label,
             sum(i.quantity for i in order.items),

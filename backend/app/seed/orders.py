@@ -2,9 +2,9 @@
 
 Every total here is produced by ``services.pricing.quote``, the same function
 the live checkout uses. That matters more than it sounds: if the seeder invented
-its own arithmetic, the admin revenue dashboard, the tax report and the invoice
-PDFs would all disagree with each other, and every analytics screen would be
-quietly wrong while looking perfectly plausible.
+its own arithmetic, the admin revenue dashboard, the CSV export and the order
+confirmation emails would all disagree with each other, and every analytics
+screen would be quietly wrong while looking perfectly plausible.
 """
 
 from __future__ import annotations

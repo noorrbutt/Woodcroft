@@ -28,7 +28,11 @@ verified. Update it whenever an asset is added or replaced.
   ACTION: confirm it is original work or covered by a work-for-hire/assignment
   with rights transferred to the business; keep the source/assignment on file.
 
-## Removed / avoid
+## Image sourcing
 
-- The opt-in Unsplash "curated" image mode hotlinks CDN images by hardcoded ID
-  and is not used; avoid enabling it (hotlinking/licensing risk).
+- `SEED_IMAGE_MODE=generated` (the default) draws product plates procedurally and
+  fetches nothing.
+- `SEED_IMAGE_MODE=curated` searches the Pexels API (`PEXELS_API_KEY`) and
+  **downloads** each match, re-encoding it locally. Nothing is hotlinked, so a
+  remote image disappearing cannot break the storefront. Keep it that way: any
+  future source must be downloaded and licence-checked, not linked by ID.

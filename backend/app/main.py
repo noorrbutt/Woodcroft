@@ -98,7 +98,7 @@ async def request_context(request: Request, call_next):
     report can be traced to one log line. The headers close off clickjacking,
     MIME sniffing and referrer leakage by default rather than relying on the
     deployment to remember. The API only ever returns JSON, so a strict CSP is
-    safe here; the storefront's own CSP is set at nginx.
+    safe here; the storefront's own CSP is set by its host (frontend/vercel.json).
     """
     request.state.request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
     response = await call_next(request)

@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import uuid
-from datetime import datetime
 from typing import Generic, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 from app.core.money import format_pkr
 
@@ -48,24 +46,7 @@ class Page(Schema, Generic[T]):
         return cls(items=items, total=total, page=page, per_page=per_page, pages=pages)
 
 
-class PaginationParams(BaseModel):
-    page: int = Field(1, ge=1)
-    per_page: int = Field(24, ge=1, le=100)
-
-    @property
-    def offset(self) -> int:
-        return (self.page - 1) * self.per_page
-
-
 class Message(Schema):
     message: str
     ok: bool = True
 
-
-class IdResponse(Schema):
-    id: uuid.UUID
-
-
-class Timestamped(Schema):
-    created_at: datetime
-    updated_at: datetime

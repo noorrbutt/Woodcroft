@@ -9,8 +9,8 @@ chair"), so a dining chair shows a dining chair. Results are downloaded once,
 cropped to the catalogue's 4:5 aspect and run through the same webp+blur pipeline
 as everything else, so they are served locally and load instantly.
 
-Set PEXELS_API_KEY in the environment. Without it, callers fall back to the
-generated placeholder card.
+Set PEXELS_API_KEY in the environment or backend/.env. Without it, callers fall
+back to the generated placeholder card.
 """
 
 from __future__ import annotations
@@ -18,7 +18,6 @@ from __future__ import annotations
 import hashlib
 import io
 import json
-import os
 import ssl
 import urllib.parse
 import urllib.request
@@ -26,6 +25,7 @@ from pathlib import Path
 
 from PIL import Image
 
+from app.core.config import settings
 from app.services.media.plates import SIZES, blur_data_url
 
 _ctx = ssl.create_default_context()
@@ -71,7 +71,7 @@ _master_cache: dict[str, Image.Image | None] = {}
 
 
 def api_key() -> str | None:
-    return os.environ.get("PEXELS_API_KEY") or None
+    return settings.PEXELS_API_KEY or None
 
 
 def _search(query: str, key: str) -> list[str]:

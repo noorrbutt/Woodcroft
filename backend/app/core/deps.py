@@ -144,11 +144,11 @@ def require_permission(permission: Permission) -> Callable[..., User]:
 def client_ip(request: Request) -> str | None:
     """The peer address, as rewritten by the trusted proxy.
 
-    We do NOT read X-Forwarded-For here. nginx appends to that header, so a
+    We do NOT read X-Forwarded-For here. A proxy appends to that header, so a
     client that sends its own X-Forwarded-For lands first in the list, and
     trusting element zero let an attacker forge the IP written to session and
-    password-reset records. uvicorn --proxy-headers --forwarded-allow-ips sets
-    request.client.host from the real edge instead, which is what we return.
+    password-reset records. The platform sets request.client.host from the real
+    edge instead, which is what we return.
     """
     return request.client.host if request.client else None
 

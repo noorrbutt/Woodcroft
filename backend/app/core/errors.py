@@ -66,16 +66,6 @@ class InvalidCredentialsError(AuthenticationError):
     message = "Email or password is incorrect."
 
 
-class AccountLockedError(AuthenticationError):
-    code = "account_locked"
-    message = "Too many failed attempts. Try again shortly."
-
-
-class EmailNotVerifiedError(AuthenticationError):
-    code = "email_not_verified"
-    message = "Please verify your email address first."
-
-
 class PermissionDeniedError(AppError):
     status_code = status.HTTP_403_FORBIDDEN
     code = "permission_denied"
@@ -100,29 +90,14 @@ class EmailAlreadyRegisteredError(ConflictError):
 
 
 # ── Domain-specific ──────────────────────────────────────────────────────────
-class OutOfStockError(ConflictError):
-    code = "out_of_stock"
-    message = "This item is no longer available in the requested quantity."
-
-
 class InsufficientStockError(ConflictError):
     code = "insufficient_stock"
     message = "Not enough stock remaining."
 
 
-class ReservationExpiredError(ConflictError):
-    code = "reservation_expired"
-    message = "Your checkout reservation expired. Please review your cart."
-
-
 class CartEmptyError(AppError):
     code = "cart_empty"
     message = "Your cart is empty."
-
-
-class CouponInvalidError(AppError):
-    code = "coupon_invalid"
-    message = "This coupon code is not valid."
 
 
 class PaymentMethodUnavailableError(AppError):
@@ -138,12 +113,6 @@ class CodNotAvailableError(PaymentMethodUnavailableError):
 class OrderNotCancellableError(ConflictError):
     code = "order_not_cancellable"
     message = "This order can no longer be cancelled."
-
-
-class RateLimitedError(AppError):
-    status_code = status.HTTP_429_TOO_MANY_REQUESTS
-    code = "rate_limited"
-    message = "Too many requests. Please slow down."
 
 
 def register_exception_handlers(app: FastAPI) -> None:

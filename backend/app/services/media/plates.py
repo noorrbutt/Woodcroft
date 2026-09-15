@@ -40,6 +40,7 @@ from pathlib import Path
 from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter
 
 from app.models.enums import WoodSpecies
+from app.services.media.colour import hex_to_rgb, mix
 
 #: Grain is generated at this size, then scaled to whatever the panel needs.
 #: Fixed so the lru_cache below actually hits.
@@ -77,16 +78,6 @@ GRAIN_BY_SPECIES: dict[WoodSpecies, Grain] = {
     WoodSpecies.DEODAR: Grain(13.0, 0.035, 0.30, 0.22),
     WoodSpecies.PINE: Grain(11.0, 0.030, 0.34, 0.20),
 }
-
-
-def _hex(value: str) -> tuple[int, int, int]:
-    value = value.lstrip("#")
-    return tuple(int(value[i : i + 2], 16) for i in (0, 2, 4))  # type: ignore[return-value]
-
-
-def _mix(a: tuple[int, int, int], b: tuple[int, int, int], t: float) -> tuple[int, int, int]:
-    t = max(0.0, min(1.0, t))
-    return tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(3))  # type: ignore[return-value]
 
 
 def _seed_for(key: str) -> int:
@@ -185,7 +176,7 @@ def _grain_field(species: WoodSpecies, seed: int) -> Image.Image:
 def wood_texture(species: WoodSpecies, variation: int) -> Image.Image:
     """A tinted wood texture at a fixed size, cached per species + variation."""
     palette = species.grain_palette
-    base, grain, highlight = _hex(palette[0]), _hex(palette[1]), _hex(palette[2])
+    base, grain, highlight = hex_to_rgb(palette[0]), hex_to_rgb(palette[1]), hex_to_rgb(palette[2])
 
     field = _grain_field(species, _seed_for(f"{species.value}:{variation}"))
     field = field.resize((TEXTURE_W, TEXTURE_H), Image.LANCZOS)
@@ -203,7 +194,7 @@ def wood_texture(species: WoodSpecies, variation: int) -> Image.Image:
         lut = []
         for v in range(256):
             t = v / 255
-            colour = _mix(grain, base, t * 1.9) if t < 0.52 else _mix(base, highlight, (t - 0.52) * 2.1)
+            colour = mix(grain, base, t * 1.9) if t < 0.52 else mix(base, highlight, (t - 0.52) * 2.1)
             lut.append(colour[index])
         channels.append(field.point(lut))
 
@@ -265,7 +256,7 @@ def make_plate(
 ) -> Image.Image:
     """One staged product plate."""
     rng = random.Random(_seed_for(f"{key}:{angle}"))
-    ground = _hex(GROUNDS[rng.randrange(len(GROUNDS))])
+    ground = hex_to_rgb(GROUNDS[rng.randrange(len(GROUNDS))])
     canvas = Image.new("RGB", (width, height), ground)
 
     # Panel geometry varies by angle so a product's images differ from each
@@ -357,61 +348,3 @@ def write_swatch(root: Path, species: WoodSpecies, size: int = 320) -> str:
     target.parent.mkdir(parents=True, exist_ok=True)
     texture.save(f"{target}.webp", "WEBP", quality=88)
     return rel
-
-
-def write_og_image(root: Path, rel_path: str, species: WoodSpecies, key: str) -> str:
-    """A 1200x630 social card cropped from the product's own plate."""
-    plate = make_plate(species, key=key, angle=0, width=1200, height=1500)
-    card = plate.crop((0, 380, 1200, 1010))
-    target = root / rel_path
-    target.parent.mkdir(parents=True, exist_ok=True)
-    card.save(f"{target}_og.webp", "WEBP", quality=85)
-    return f"{rel_path}_og"
-
-
-def write_hero(root: Path, rel_path: str = "hero/workshop", width: int = 2400,
-               height: int = 1500) -> dict:
-    """A wide full-bleed wood field for the homepage hero.
-
-    Deliberately not a product plate. A plate is a framed panel on a paper
-    ground, so using one as a hero puts a visible vertical edge down the page
-    wherever the panel stops. This is edge-to-edge grain with no framing.
-    """
-    texture = wood_texture(WoodSpecies.WALNUT, 1)
-
-    # Tile horizontally so a wide hero is covered without stretching the grain
-    # into something that no longer reads as timber.
-    tile_w = int(TEXTURE_W * (height / TEXTURE_H))
-    scaled = texture.resize((tile_w, height), Image.LANCZOS)
-
-    canvas = Image.new("RGB", (width, height))
-    x = 0
-    flip = False
-    while x < width:
-        piece = scaled.transpose(Image.FLIP_LEFT_RIGHT) if flip else scaled
-        canvas.paste(piece, (x, 0))
-        x += tile_w
-        flip = not flip
-
-    # Soften the seams the tiling leaves behind.
-    canvas = canvas.filter(ImageFilter.GaussianBlur(0.8))
-    canvas = ImageEnhance.Brightness(canvas).enhance(0.82)
-    canvas = ImageEnhance.Contrast(canvas).enhance(0.92)
-
-    target = root / rel_path
-    target.parent.mkdir(parents=True, exist_ok=True)
-    for size in (800, 1600, 2400):
-        piece = canvas.copy()
-        piece.thumbnail((size, size), Image.LANCZOS)
-        piece.save(f"{target}_{size}.webp", "WEBP", quality=80, method=2)
-
-    return {
-        "base_path": rel_path,
-        "sizes": [800, 1600, 2400],
-        "width": canvas.width,
-        "height": canvas.height,
-        "aspect": round(canvas.width / canvas.height, 4),
-        "blur_data_url": blur_data_url(canvas),
-        "source": "generated",
-        "checksum": None,
-    }

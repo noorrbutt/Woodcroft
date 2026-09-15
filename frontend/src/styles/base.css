@@ -123,13 +123,6 @@
     color: var(--wc-text-tertiary);
   }
 
-  /* A thin walnut rule that draws itself in on reveal. */
-  .wc-rule {
-    height: 1px;
-    background: var(--wc-border-subtle);
-    transform-origin: left;
-  }
-
   /* ── Buttons ─────────────────────────────────────────────────────────── */
   .wc-btn {
     display: inline-flex;
@@ -246,13 +239,6 @@
   }
 
   /* ── Surfaces ────────────────────────────────────────────────────────── */
-  .wc-card {
-    background: var(--wc-surface);
-    border: 1px solid var(--wc-border-subtle);
-    border-radius: var(--wc-radius);
-    box-shadow: var(--wc-shadow-sm), var(--wc-bevel);
-  }
-
   .wc-panel {
     background: var(--wc-surface);
     border: 1px solid var(--wc-border-subtle);

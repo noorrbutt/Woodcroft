@@ -22,6 +22,7 @@ from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import BaseModel
+from app.models.enums import TicketStatus
 
 
 class BlogPost(BaseModel):
@@ -208,8 +209,10 @@ class SupportTicket(BaseModel):
     )
 
     __table_args__ = (
+        # Derived from the enum so the constraint and the Python type cannot
+        # drift apart when a new status is added.
         CheckConstraint(
-            "status IN ('open','pending_customer','resolved','closed')",
+            f"status IN ({','.join(repr(s.value) for s in TicketStatus)})",
             name="status_is_known",
         ),
         CheckConstraint(

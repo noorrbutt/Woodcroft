@@ -11,6 +11,7 @@ authority - every admin route enforces its permission via a dependency.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from enum import StrEnum
 
 
@@ -93,19 +94,18 @@ DEFAULT_STAFF_PERMISSIONS: frozenset[Permission] = frozenset(
 
 ALL_PERMISSIONS: frozenset[Permission] = frozenset(Permission)
 
+_KNOWN_VALUES: frozenset[str] = frozenset(p.value for p in Permission)
 
-def permissions_for(role: Role, granted: set[str] | None = None) -> frozenset[Permission]:
-    """Effective permissions for a user.
+
+def permissions_for(role: Role, granted: Iterable[str]) -> frozenset[Permission]:
+    """Effective permissions for a user. The single definition of the policy.
 
     Admins get everything regardless of stored grants. Staff get exactly what is
-    stored against them. Customers get nothing from this set.
+    stored against them, ignoring any grant whose name no longer exists.
+    Customers get nothing from this set.
     """
     if role is Role.ADMIN:
         return ALL_PERMISSIONS
     if role is Role.STAFF:
-        if granted is None:
-            return DEFAULT_STAFF_PERMISSIONS
-        return frozenset(
-            Permission(p) for p in granted if p in Permission._value2member_map_
-        )
+        return frozenset(Permission(p) for p in granted if p in _KNOWN_VALUES)
     return frozenset()

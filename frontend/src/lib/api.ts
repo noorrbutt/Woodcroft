@@ -249,7 +249,7 @@ export async function download(path: string, filename: string): Promise<void> {
 }
 
 /** Arrays repeat the key, which is what FastAPI's Query(list) expects. */
-export function buildQuery(params: Record<string, unknown>): string {
+function buildQuery(params: Record<string, unknown>): string {
   const search = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === null || value === '') continue
@@ -263,21 +263,6 @@ export function buildQuery(params: Record<string, unknown>): string {
   }
   const query = search.toString()
   return query ? `?${query}` : ''
-}
-
-/** Make sure a guest identity exists before using the cart. */
-export async function ensureGuestSession(): Promise<string | null> {
-  if (auth.isAuthenticated) return null
-  const existing = guest.token
-  if (existing) return existing
-
-  try {
-    const data = await post<{ guest_token: string }>('/auth/guest')
-    guest.set(data.guest_token)
-    return data.guest_token
-  } catch {
-    return null
-  }
 }
 
 /** Restore a session on boot, if a refresh token survived the reload. */

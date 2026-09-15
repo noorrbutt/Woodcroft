@@ -234,5 +234,3 @@ export const SORT_OPTIONS = [
   { value: 'rating', label: 'Top rated' },
   { value: 'bestselling', label: 'Best selling' },
 ] as const
-
-export type SortKey = (typeof SORT_OPTIONS)[number]['value']

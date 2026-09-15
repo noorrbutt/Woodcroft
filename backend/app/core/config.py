@@ -8,7 +8,6 @@ the values here are only the bootstrap defaults.
 
 from __future__ import annotations
 
-from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -92,8 +91,10 @@ class Settings(BaseSettings):
     #: https://res.cloudinary.com/<cloud>/image/upload, and the static mount is
     #: skipped automatically (the serverless filesystem is ephemeral).
     MEDIA_URL: str = "/media"
+    #: "generated" draws product plates procedurally and works offline.
+    #: "curated" pulls matching photographs from Pexels and needs PEXELS_API_KEY.
     SEED_IMAGE_MODE: Literal["generated", "curated"] = "generated"
-    UNSPLASH_ACCESS_KEY: str = ""
+    PEXELS_API_KEY: str = ""
 
     # ── Cloudinary (media hosting for admin uploads) ───────────────────────────
     CLOUDINARY_CLOUD_NAME: str = ""
@@ -201,9 +202,4 @@ class Settings(BaseSettings):
             )
 
 
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()
-
-
-settings = get_settings()
+settings = Settings()

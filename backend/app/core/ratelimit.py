@@ -1,9 +1,11 @@
 """Rate limiting.
 
-slowapi with in-memory storage, which is the right call here: there is no Redis
-in this environment, and a single uvicorn process shares one limiter anyway.
-If this is ever scaled to multiple workers, point ``storage_uri`` at Redis and
-nothing else has to change.
+slowapi, keyed per user when signed in and per IP otherwise. Storage defaults to
+process memory, which is correct for a single local process. Anywhere the app
+runs as more than one process - several workers, or serverless function
+instances - each would otherwise enforce the limit separately and multiply it,
+so ``RATELIMIT_STORAGE_URI`` points at Redis and the limits become shared again.
+Nothing else has to change.
 """
 
 from __future__ import annotations

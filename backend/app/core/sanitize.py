@@ -1,4 +1,4 @@
-"""Server-side HTML sanitisation for admin-authored content.
+"""Server-side sanitisation of untrusted content.
 
 The blog, static page and FAQ bodies are stored as HTML and rendered into the
 storefront. Sanitising on write means the stored value is already safe whatever
@@ -41,3 +41,20 @@ def clean_html(html: str | None) -> str:
         protocols=ALLOWED_PROTOCOLS,
         strip=True,
     )
+
+
+#: Excel and Sheets evaluate a cell starting with one of these as a formula.
+_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def csv_cell(value: object) -> str:
+    """Neutralise spreadsheet formula injection in customer-supplied text.
+
+    A customer whose name is ``=HYPERLINK(...)`` would otherwise run code on
+    the workstation of any admin who opens the export, so the cell is prefixed
+    with an apostrophe and the spreadsheet treats it as literal text.
+    """
+    text = "" if value is None else str(value)
+    if text[:1] in _CSV_FORMULA_PREFIXES:
+        return "'" + text
+    return text

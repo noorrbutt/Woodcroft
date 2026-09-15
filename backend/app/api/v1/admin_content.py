@@ -18,12 +18,11 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
-from app.api.v1.admin import _csv_cell, audit
 from app.core.deps import DbSession, require_permission
 from app.core.errors import NotFoundError, ValidationError
 from app.core.money import format_pkr, paisa_to_rupees, rupees_to_paisa
 from app.core.permissions import Permission
-from app.core.sanitize import clean_html
+from app.core.sanitize import clean_html, csv_cell
 from app.models.catalog import Category, Product, ProductVariant
 from app.models.content import (
     Banner,
@@ -42,6 +41,7 @@ from app.models.enums import (
     OrderStatus,
     ProductStatus,
     ReturnStatus,
+    TicketStatus,
 )
 from app.models.identity import User
 from app.models.inventory import StockLevel, StockMovement
@@ -49,6 +49,7 @@ from app.models.order import Order, OrderItem, ReturnRequest
 from app.models.promotion import Coupon, CouponRedemption, GiftCard, GiftCardTransaction
 from app.schemas.common import Message
 from app.services import notifications
+from app.services.audit import audit
 from app.services.order_ops import assert_return_transition, record_payment_refund
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -944,7 +945,9 @@ def admin_get_ticket(
 class TicketReply(BaseModel):
     body: str = Field(min_length=2, max_length=4000)
     is_internal: bool = False
-    status: str | None = None
+    #: Typed, so an unknown status is a clean 422 rather than a database
+    #: CHECK violation surfacing as a conflict.
+    status: TicketStatus | None = None
 
 
 @router.post("/tickets/{ticket_id}/reply", response_model=Message)
@@ -964,11 +967,11 @@ def admin_reply_ticket(
     ))
     ticket.last_reply_at = datetime.now(UTC)
     if payload.status:
-        ticket.status = payload.status
-        if payload.status == "resolved":
+        ticket.status = payload.status.value
+        if payload.status is TicketStatus.RESOLVED:
             ticket.resolved_at = datetime.now(UTC)
     elif not payload.is_internal:
-        ticket.status = "pending_customer"
+        ticket.status = TicketStatus.PENDING_CUSTOMER.value
 
     # An internal note is for staff only and must never be emailed out.
     if not payload.is_internal:
@@ -1019,16 +1022,16 @@ def export_products(
         compare = variant.compare_at_price_paisa or product.compare_at_price_paisa or 0
         writer.writerow([
             variant.sku,
-            _csv_cell(product.name),
+            csv_cell(product.name),
             category.slug,
-            _csv_cell(variant.name or ""),
+            csv_cell(variant.name or ""),
             product.wood_species.value if product.wood_species else "",
             paisa_to_rupees(variant.price_paisa or product.base_price_paisa),
             paisa_to_rupees(compare) if compare else "",
             stock.on_hand if stock else 0,
             product.status.value,
-            _csv_cell(product.subtitle or ""),
-            _csv_cell(product.description or ""),
+            csv_cell(product.subtitle or ""),
+            csv_cell(product.description or ""),
         ])
 
     return Response(

@@ -27,12 +27,7 @@ from app.core.security import hash_password
 from app.db.session import SessionLocal
 from app.models.identity import NotificationPreference, User
 from app.models.promotion import LoyaltyAccount
-
-
-def _referral_code() -> str:
-    import secrets
-
-    return "WCAD" + secrets.token_hex(3).upper()
+from app.services.auth import generate_referral_code
 
 
 def main() -> int:
@@ -56,7 +51,7 @@ def main() -> int:
                 password_hash=hash_password(password),
                 role=Role.ADMIN,
                 email_verified_at=datetime.now(UTC),
-                referral_code=_referral_code(),
+                referral_code=generate_referral_code(db),
             )
             db.add(user)
             db.flush()

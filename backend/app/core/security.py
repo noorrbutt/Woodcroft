@@ -129,7 +129,3 @@ def hash_token(token: str) -> str:
     hash is correct here - argon2 would add latency for no security gain.
     """
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
-
-
-def constant_time_compare(a: str, b: str) -> bool:
-    return secrets.compare_digest(a, b)
