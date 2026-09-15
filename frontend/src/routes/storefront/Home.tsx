@@ -400,12 +400,6 @@ function Newsletter() {
       <span className="absolute inset-x-0 top-0 h-px bg-[var(--brass-400)] opacity-50" aria-hidden />
       <div className="wc-grain absolute inset-0 opacity-50" aria-hidden />
       <div className="wc-container relative grid gap-8 py-20 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-        <span
-          aria-hidden
-          className="pointer-events-none absolute top-0 right-0 select-none font-display leading-none text-on-inverse opacity-[0.06] text-[clamp(6rem,18vw,15rem)]"
-        >
-          06
-        </span>
         <div>
           <span className="wc-numeral !text-[var(--brass-300)]">06</span>
           <h2 className="mt-4 text-on-inverse">10% off your first order</h2>
