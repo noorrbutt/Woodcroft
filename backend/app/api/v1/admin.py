@@ -46,6 +46,7 @@ from app.models.order import (
     ReturnRequest,
     Shipment,
 )
+from app.models.promotion import Coupon, CouponRedemption, GiftCardTransaction
 from app.models.review import Review, ReviewReply
 from app.schemas.common import Message, Money, Page, Schema
 from app.services import notifications
@@ -1119,6 +1120,71 @@ def moderate_review(
 
 
 # ── Notifications outbox ─────────────────────────────────────────────────────
+@router.get("/activity")
+def admin_activity(
+    db: DbSession,
+    _: Annotated[User, Depends(require_permission(Permission.ORDER_VIEW))],
+    limit: int = Query(40, ge=1, le=100),
+) -> dict[str, Any]:
+    """Store activity feed for the admin bell: new orders, coupon and gift-card
+    use, and return requests, merged newest-first. Read-only aggregation."""
+    items: list[dict[str, Any]] = []
+
+    for o in db.scalars(
+        select(Order).order_by(Order.placed_at.desc().nullslast()).limit(limit)
+    ).all():
+        at = o.placed_at or o.created_at
+        items.append({
+            "type": "order",
+            "title": f"New order {o.order_number}",
+            "detail": f"{format_pkr(o.total_paisa)} · {o.status.value.replace('_', ' ')}",
+            "at": at.isoformat(),
+            "href": "/admin/orders",
+        })
+
+    for red, code, onum in db.execute(
+        select(CouponRedemption, Coupon.code, Order.order_number)
+        .join(Coupon, Coupon.id == CouponRedemption.coupon_id)
+        .join(Order, Order.id == CouponRedemption.order_id)
+        .order_by(CouponRedemption.created_at.desc()).limit(limit)
+    ).all():
+        items.append({
+            "type": "coupon",
+            "title": f"Coupon {code} used",
+            "detail": f"Saved {format_pkr(red.discount_paisa)} on {onum}",
+            "at": red.created_at.isoformat(),
+            "href": "/admin/orders",
+        })
+
+    for tx, onum in db.execute(
+        select(GiftCardTransaction, Order.order_number)
+        .join(Order, Order.id == GiftCardTransaction.order_id, isouter=True)
+        .where(GiftCardTransaction.delta_paisa < 0)
+        .order_by(GiftCardTransaction.created_at.desc()).limit(limit)
+    ).all():
+        items.append({
+            "type": "gift_card",
+            "title": "Gift card redeemed",
+            "detail": format_pkr(-tx.delta_paisa) + (f" on {onum}" if onum else ""),
+            "at": tx.created_at.isoformat(),
+            "href": "/admin/orders",
+        })
+
+    for r in db.scalars(
+        select(ReturnRequest).order_by(ReturnRequest.created_at.desc()).limit(limit)
+    ).all():
+        items.append({
+            "type": "return",
+            "title": f"Return requested {r.return_number}",
+            "detail": r.status.value.replace("_", " "),
+            "at": r.created_at.isoformat(),
+            "href": "/admin/orders",
+        })
+
+    items.sort(key=lambda x: x["at"], reverse=True)
+    return {"items": items[:limit]}
+
+
 @router.get("/notifications")
 def list_notifications(
     db: DbSession,

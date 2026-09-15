@@ -32,6 +32,7 @@ import {
   Ticket,
   Undo2,
   Upload,
+  Bell,
   ClipboardList,
   LayoutDashboard,
   Mail,
@@ -91,6 +92,99 @@ const NAV = [
   { to: '/admin/settings', label: 'Settings', icon: SettingsIcon },
 ]
 
+type ActivityItem = { type: string; title: string; detail: string; at: string; href: string }
+
+const ACTIVITY_ICON: Record<string, typeof Bell> = {
+  order: Package,
+  coupon: Ticket,
+  gift_card: Star,
+  return: Undo2,
+}
+
+/** Store-activity bell: new orders, coupon / gift-card use, returns. */
+function AdminActivityBell() {
+  const [open, setOpen] = useState(false)
+  const [seen, setSeen] = useState<number>(() => {
+    try {
+      return Number(localStorage.getItem('wc-admin-activity-seen')) || 0
+    } catch {
+      return 0
+    }
+  })
+  const { data } = useQuery({
+    queryKey: ['admin-activity'],
+    queryFn: () => get<{ items: ActivityItem[] }>('/admin/activity', { limit: 40 }),
+    refetchInterval: 60_000,
+  })
+  const items = data?.items ?? []
+  const unread = items.filter((i) => new Date(i.at).getTime() > seen).length
+
+  const markSeen = () => {
+    const now = Date.now()
+    setSeen(now)
+    try {
+      localStorage.setItem('wc-admin-activity-seen', String(now))
+    } catch {
+      /* storage may be unavailable; the badge just won't persist */
+    }
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => {
+          if (!open) markSeen()
+          setOpen((o) => !o)
+        }}
+        aria-label={unread > 0 ? `Store activity, ${unread} new` : 'Store activity'}
+        className="relative rounded-[2px] p-2 text-muted hover:text-ink"
+      >
+        <Bell size={18} strokeWidth={1.5} />
+        {unread > 0 && (
+          <span className="absolute -right-0.5 -top-0.5 flex min-w-[1rem] items-center justify-center rounded-full bg-[var(--wc-brass)] px-1 text-[0.6rem] font-semibold text-[var(--walnut-900)]">
+            {unread > 9 ? '9+' : unread}
+          </span>
+        )}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} aria-hidden />
+          <div className="absolute right-0 z-40 mt-2 max-h-[70vh] w-80 overflow-y-auto rounded-sm border border-line bg-surface shadow-lg">
+            <div className="border-b border-line px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted">
+              Store activity
+            </div>
+            {items.length === 0 ? (
+              <p className="px-4 py-6 text-center text-sm text-muted">Nothing yet.</p>
+            ) : (
+              <ul className="divide-y divide-line">
+                {items.map((item, idx) => {
+                  const Icon = ACTIVITY_ICON[item.type] ?? Bell
+                  return (
+                    <li key={idx}>
+                      <Link
+                        to={item.href}
+                        onClick={() => setOpen(false)}
+                        className="flex gap-3 px-4 py-3 hover:bg-sunken"
+                      >
+                        <Icon size={15} strokeWidth={1.5} className="mt-0.5 shrink-0 text-[var(--wc-brass)]" />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm text-ink">{item.title}</p>
+                          <p className="truncate text-xs text-muted">{item.detail}</p>
+                          <p className="mt-0.5 text-[0.65rem] text-faint">{relativeTime(item.at)}</p>
+                        </div>
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function Shell({ children }: { children: ReactNode }) {
   const user = useAuthStore((state) => state.user)
 
@@ -137,6 +231,9 @@ function Shell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-end border-b border-line bg-sunken px-3 py-1.5 lg:px-8">
+          <AdminActivityBell />
+        </div>
         <nav className="flex gap-1 overflow-x-auto border-b border-line bg-sunken px-3 py-2 lg:hidden wc-no-scrollbar">
           {NAV.map(({ to, label, end }) => (
             <NavLink
