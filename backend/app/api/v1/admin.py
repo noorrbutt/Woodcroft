@@ -625,14 +625,18 @@ def create_product(
     db.add(StockLevel(variant_id=variant.id, on_hand=payload.initial_stock))
 
     # A placeholder image so the listing is never blank; the admin replaces it.
-    from app.services.media.photos import write_placeholder
+    # Cloudinary in production (the serverless filesystem is read-only), local
+    # disk in dev. Both return the same ProductImage metadata shape.
+    rel = f"products/{product.slug}/0"
+    species = payload.wood_species or WoodSpecies.SHEESHAM
+    if settings.cloudinary_enabled:
+        from app.services.media.cloud import cloud_write_placeholder
 
-    meta = write_placeholder(
-        settings.media_path,
-        f"products/{product.slug}/0",
-        payload.wood_species or WoodSpecies.SHEESHAM,
-        product.name,
-    )
+        meta = cloud_write_placeholder(rel, species, product.name)
+    else:
+        from app.services.media.photos import write_placeholder
+
+        meta = write_placeholder(settings.media_path, rel, species, product.name)
     db.add(ProductImage(
         product_id=product.id, alt_text=product.name,
         sort_order=0, is_primary=True, **meta,

@@ -158,9 +158,7 @@ def _mix(a: tuple[int, int, int], b: tuple[int, int, int], t: float) -> tuple[in
     return tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(3))
 
 
-def write_placeholder(
-    root: Path, rel_path: str, species: WoodSpecies, product_name: str
-) -> dict:
+def render_placeholder(species: WoodSpecies, product_name: str) -> "Image.Image":
     """An honest, on-brand placeholder card labelled with the product.
 
     Real product photography is uploaded by an admin. Until then, showing a
@@ -212,23 +210,35 @@ def write_placeholder(
     sw = draw.textlength(label, font=sf)
     draw.text(((W - sw) / 2, y + 48), label, font=sf, fill=muted)
 
+    return base
+
+
+def placeholder_meta(rel_path: str, base: "Image.Image") -> dict:
+    """The ProductImage metadata for a rendered placeholder (no file I/O)."""
+    return {
+        "base_path": rel_path,
+        "sizes": list(SIZES),
+        "width": base.width,
+        "height": base.height,
+        "aspect": round(base.width / base.height, 4),
+        "blur_data_url": blur_data_url(base),
+        "source": "generated",
+        "checksum": hashlib.sha256(f"placeholder:{rel_path}".encode()).hexdigest(),
+    }
+
+
+def write_placeholder(
+    root: Path, rel_path: str, species: WoodSpecies, product_name: str
+) -> dict:
+    """Render an on-brand placeholder card and save the webp size family to disk."""
+    base = render_placeholder(species, product_name)
     target = root / rel_path
     target.parent.mkdir(parents=True, exist_ok=True)
     for size in SIZES:
         scaled = base.copy()
         scaled.thumbnail((size, size * 2), Image.LANCZOS)
         scaled.save(f"{target}_{size}.webp", "WEBP", quality=84, method=2)
-
-    return {
-        "base_path": rel_path,
-        "sizes": list(SIZES),
-        "width": W,
-        "height": H,
-        "aspect": round(W / H, 4),
-        "blur_data_url": blur_data_url(base),
-        "source": "generated",
-        "checksum": hashlib.sha256(f"placeholder:{rel_path}".encode()).hexdigest(),
-    }
+    return placeholder_meta(rel_path, base)
 
 
 def write_upload(root: Path, rel_path: str, data: bytes) -> dict:

@@ -30,6 +30,31 @@ def _configure() -> None:
     )
 
 
+def cloud_write_placeholder(rel_path: str, species, product_name: str) -> dict:
+    """Render the on-brand placeholder card and upload its size family to Cloudinary.
+
+    Used when a product is created on a serverless host, where the local
+    filesystem is read-only. Mirrors the on-disk write_placeholder output.
+    """
+    from PIL import Image
+
+    from app.services.media.photos import placeholder_meta, render_placeholder
+
+    base = render_placeholder(species, product_name)
+    _configure()
+    for size in SIZES:
+        scaled = base.copy()
+        scaled.thumbnail((size, size * 2), Image.LANCZOS)
+        buf = io.BytesIO()
+        scaled.save(buf, "WEBP", quality=84, method=2)
+        buf.seek(0)
+        cloudinary.uploader.upload(
+            buf, public_id=f"{rel_path}_{size}", resource_type="image",
+            format="webp", overwrite=True, invalidate=True,
+        )
+    return placeholder_meta(rel_path, base)
+
+
 def cloud_write_upload(rel_path: str, data: bytes) -> dict:
     """Process bytes into the webp size family and upload each to Cloudinary.
 

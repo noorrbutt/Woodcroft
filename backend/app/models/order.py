@@ -155,8 +155,12 @@ class Order(BaseModel):
 
     #: The account that placed this order, when it was not a guest checkout.
     #: Read-only from the order's side: an order never edits a customer.
+    #: selectin, not joined: a joined outer-join to the nullable user table makes
+    #: Postgres refuse SELECT ... FOR UPDATE on the order ("FOR UPDATE cannot be
+    #: applied to the nullable side of an outer join"), which broke refunds and
+    #: other order-locking flows. selectin keeps it eager via a separate query.
     user: Mapped[User | None] = relationship(
-        "User", lazy="joined", viewonly=True
+        "User", lazy="selectin", viewonly=True
     )
     items: Mapped[list[OrderItem]] = relationship(
         back_populates="order", cascade="all, delete-orphan", lazy="selectin"
