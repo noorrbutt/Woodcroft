@@ -273,12 +273,11 @@ export function CartPage() {
             )}
 
             <div className="mb-3">
-              <GiftCardField />
-              {quote?.gift_card_error && (
-                <p className="mt-2 text-xs text-[var(--wc-danger)]">
-                  That gift card code is not valid.
-                </p>
-              )}
+              <GiftCardField
+                appliedPaisa={quote?.gift_card_applied.paisa ?? 0}
+                appliedDisplay={quote?.gift_card_applied.display ?? ''}
+                error={Boolean(quote?.gift_card_error)}
+              />
             </div>
 
             <dl className="space-y-2 text-sm">
@@ -368,16 +367,26 @@ interface SavedAddress {
   is_default_shipping: boolean
 }
 
-function GiftCardField() {
-  const applied = useCartStore((state) => state.giftCardCode)
+function GiftCardField({
+  appliedPaisa = 0,
+  appliedDisplay = '',
+  error = false,
+}: {
+  appliedPaisa?: number
+  appliedDisplay?: string
+  error?: boolean
+}) {
+  const stored = useCartStore((state) => state.giftCardCode)
   const setGiftCard = useCartStore((state) => state.setGiftCard)
-  const [code, setCode] = useState(applied ?? '')
+  const [code, setCode] = useState(stored ?? '')
 
-  if (applied) {
+  // Only claim "applied" once the server confirms a real, non-zero deduction.
+  // A stored code that the quote could not redeem is treated as invalid.
+  if (stored && appliedPaisa > 0) {
     return (
       <div className="flex items-center justify-between text-sm">
-        <span className="text-muted">
-          Gift card <span className="font-mono">{applied}</span> applied
+        <span className="text-[var(--wc-success)]">
+          Gift card <span className="font-mono">{stored}</span> applied, −{appliedDisplay}
         </span>
         <button
           type="button"
@@ -391,22 +400,29 @@ function GiftCardField() {
   }
 
   return (
-    <div className="flex gap-2">
-      <Input
-        aria-label="Gift card code"
-        placeholder="Gift card code"
-        value={code}
-        onChange={(e) => setCode(e.target.value)}
-        className="text-sm"
-      />
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => setGiftCard(code.trim() || null)}
-      >
-        Apply
-      </Button>
+    <div>
+      <div className="flex gap-2">
+        <Input
+          aria-label="Gift card code"
+          placeholder="Gift card code"
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          className="text-sm"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setGiftCard(code.trim() || null)}
+        >
+          Apply
+        </Button>
+      </div>
+      {stored && error && (
+        <p className="mt-2 text-xs text-[var(--wc-danger)]">
+          That gift card code is not valid.
+        </p>
+      )}
     </div>
   )
 }
@@ -772,7 +788,11 @@ export function CheckoutPage() {
             </dl>
 
             <div className="mt-4">
-              <GiftCardField />
+              <GiftCardField
+                appliedPaisa={quote?.gift_card_applied.paisa ?? 0}
+                appliedDisplay={quote?.gift_card_applied.display ?? ''}
+                error={Boolean(quote?.gift_card_error)}
+              />
             </div>
 
             <div className="mt-4 flex items-baseline justify-between border-t border-line pt-4">
