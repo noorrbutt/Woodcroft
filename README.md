@@ -16,6 +16,12 @@ inclusive and exclusive, and Cash on Delivery is the live payment method.
 | Admin panel | https://woodcroft.vercel.app/admin |
 
 ---
+## sneak peek to the admin panel
+<img width="2548" height="1191" alt="image" src="https://github.com/user-attachments/assets/ee4e6a6c-626d-4478-a12c-f49eaee652e8" />
+<img width="2548" height="1191" alt="image" src="https://github.com/user-attachments/assets/1756f34c-00f0-4de5-8793-fb8dfd3c5d43" />
+
+---
+
 
 ## What is in the box
 
