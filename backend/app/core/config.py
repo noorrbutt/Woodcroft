@@ -127,6 +127,8 @@ class Settings(BaseSettings):
     RATE_LIMIT_REGISTER: str = "5/minute"
     RATE_LIMIT_PASSWORD_RESET: str = "3/minute"
     RATE_LIMIT_CHECKOUT: str = "20/minute"
+    ORDER_PENDING_CAP: int = 3
+    ORDER_COD_REVIEW_PAISA: int = 5_000_000
     #: slowapi/limits storage. Empty = in-memory (fine for one process). On
     #: serverless each instance has its own memory, so point this at Redis
     #: (e.g. rediss://default:<token>@host:6379) to share limits across them.

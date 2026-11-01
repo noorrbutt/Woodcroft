@@ -68,6 +68,7 @@ class Order(BaseModel):
     #: they, can view their order by its number. Signed-in orders use the owner
     #: check instead and never expose this.
     access_token: Mapped[str | None] = mapped_column(String(64), index=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(128))
 
     user_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("user.id", ondelete="SET NULL"), index=True
@@ -191,6 +192,12 @@ class Order(BaseModel):
             name="order_has_a_contact",
         ),
         Index("ix_order_user_recent", "user_id", "placed_at"),
+        Index(
+            "uq_order_idempotency_key",
+            "idempotency_key",
+            unique=True,
+            postgresql_where=text("idempotency_key IS NOT NULL"),
+        ),
         Index(
             "ix_order_open",
             "status",

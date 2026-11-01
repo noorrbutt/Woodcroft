@@ -202,7 +202,7 @@ class TestPaymentMethods:
 
 
 class TestPlaceOrder:
-    def _place(self, client, variant, **overrides):
+    def _place(self, client, variant, *, headers=None, **overrides):
         body = {
             "lines": [{"variant_id": variant, "quantity": 2, "personalization": {}}],
             "province": "punjab",
@@ -212,7 +212,7 @@ class TestPlaceOrder:
             "accept_terms": True,
             **overrides,
         }
-        return client.post("/api/v1/orders", json=body)
+        return client.post("/api/v1/orders", json=body, headers=headers)
 
     def test_guest_order_succeeds(self, client, variant) -> None:
         response = self._place(client, variant)
@@ -238,6 +238,34 @@ class TestPlaceOrder:
             {"v": variant},
         ).scalar_one()
         assert remaining == 8
+
+    def test_idempotency_key_reuses_order_without_second_stock_deduction(
+        self, client, variant, db
+    ) -> None:
+        headers = {"Idempotency-Key": "checkout-attempt-1"}
+        first = self._place(client, variant, headers=headers)
+        second = self._place(client, variant, headers=headers)
+        assert first.status_code == second.status_code == 201
+        assert first.json()["order_number"] == second.json()["order_number"]
+
+        remaining = db.execute(
+            text("SELECT on_hand FROM stock_level WHERE variant_id = :v"),
+            {"v": variant},
+        ).scalar_one()
+        orders = db.execute(
+            text('SELECT count(*) FROM "order" WHERE idempotency_key = :key'),
+            {"key": headers["Idempotency-Key"]},
+        ).scalar_one()
+        assert remaining == 8
+        assert orders == 1
+
+    def test_fourth_pending_order_for_contact_is_rejected(self, client, variant) -> None:
+        for _ in range(3):
+            assert self._place(client, variant).status_code == 201
+
+        response = self._place(client, variant)
+        assert response.status_code == 409
+        assert response.json()["error"]["code"] == "order_cap"
 
     def test_stock_ledger_records_the_sale(self, client, variant, db) -> None:
         self._place(client, variant)

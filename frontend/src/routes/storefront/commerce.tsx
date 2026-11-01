@@ -15,7 +15,7 @@ import {
   Truck,
 } from 'lucide-react'
 
-import { ApiError, get, post } from '@/lib/api'
+import { ApiError, api, get, post } from '@/lib/api'
 import { cn } from '@/lib/cn'
 import { formatDate, formatPkr } from '@/lib/format'
 import {
@@ -451,6 +451,7 @@ export function CheckoutPage() {
   const [note, setNote] = useState('')
   const [method, setMethod] = useState('cod')
   const [terms, setTerms] = useState(false)
+  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID())
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [prefilled, setPrefilled] = useState(false)
@@ -501,16 +502,21 @@ export function CheckoutPage() {
 
   const placeOrder = useMutation({
     mutationFn: () =>
-      post<{ order_number: string; access_token: string | null }>('/orders', {
-        ...payload,
-        shipping: form,
-        email: user ? undefined : email,
-        customer_note: note || undefined,
-        gift_message: giftMessage || undefined,
-        payment_method: method,
-        accept_terms: terms,
+      api<{ order_number: string; access_token: string | null }>('/orders', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': idempotencyKey },
+        body: {
+          ...payload,
+          shipping: form,
+          email: user ? undefined : email,
+          customer_note: note || undefined,
+          gift_message: giftMessage || undefined,
+          payment_method: method,
+          accept_terms: terms,
+        },
       }),
     onSuccess: (order) => {
+      setIdempotencyKey(crypto.randomUUID())
       clearCart()
       toast.success('Order placed. Thank you.')
       // A guest order is only viewable with its access token, so carry it in the

@@ -10,12 +10,12 @@ from __future__ import annotations
 
 import secrets
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Request, status
+from fastapi import APIRouter, Header, Query, Request, status
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
@@ -600,17 +600,89 @@ def shipping_options(
 @router.post("/orders", response_model=OrderOut, status_code=status.HTTP_201_CREATED)
 @limiter.limit(settings.RATE_LIMIT_CHECKOUT)
 def place_order(
-    request: Request, payload: PlaceOrderIn, db: DbSession, user: OptionalUser
+    request: Request,
+    payload: PlaceOrderIn,
+    db: DbSession,
+    user: OptionalUser,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> OrderOut:
     """Turn a cart into an order.
 
     Stock is taken under a row lock so two shoppers cannot both buy the last
     one. Prices are recomputed here, never trusted from the client.
     """
+    idempotency_key = idempotency_key.strip() if idempotency_key else None
+    if idempotency_key and len(idempotency_key) > 128:
+        raise ValidationError("Idempotency-Key must be 128 characters or fewer.")
+    if idempotency_key:
+        db.scalar(
+            select(
+                func.pg_advisory_xact_lock(
+                    func.hashtextextended(
+                        f"order-idempotency:{idempotency_key}", 0
+                    )
+                )
+            )
+        )
+        existing = db.scalar(
+            select(Order).where(Order.idempotency_key == idempotency_key)
+        )
+        if existing is not None:
+            same_customer = (
+                existing.user_id == user.id
+                if user is not None
+                else existing.user_id is None
+                and (existing.guest_email or "").lower()
+                == (payload.email or "").lower()
+                and existing.guest_phone == payload.shipping.phone
+            )
+            if not same_customer:
+                raise ConflictError(
+                    "This idempotency key was already used for another checkout.",
+                    code="idempotency_key_conflict",
+                )
+            return _order_out(existing)
+
     if not payload.accept_terms:
         raise ValidationError("Please accept the terms to continue.")
     if user is None and not payload.email:
         raise ValidationError("An email address is required for guest checkout.")
+
+    email = user.email if user is not None else payload.email
+    phone = payload.shipping.phone
+    contact_locks = [f"order-cap:phone:{phone}"]
+    if email:
+        contact_locks.append(f"order-cap:email:{email.lower()}")
+    for lock_key in sorted(contact_locks):
+        db.scalar(
+            select(
+                func.pg_advisory_xact_lock(func.hashtextextended(lock_key, 0))
+            )
+        )
+
+    contact_conditions = [Order.shipping_phone == phone]
+    if email:
+        contact_conditions.extend(
+            [
+                func.lower(Order.guest_email) == email.lower(),
+                func.lower(User.email) == email.lower(),
+            ]
+        )
+    pending_count = db.scalar(
+        select(func.count())
+        .select_from(Order)
+        .outerjoin(User, Order.user_id == User.id)
+        .where(
+            Order.status == OrderStatus.PENDING,
+            Order.placed_at >= datetime.now(UTC) - timedelta(hours=24),
+            or_(*contact_conditions),
+        )
+    )
+    if pending_count >= settings.ORDER_PENDING_CAP:
+        raise ConflictError(
+            "Too many pending orders for this contact in the last 24 hours.",
+            code="order_cap",
+        )
 
     payload.province = payload.shipping.province
     priced, meta, extra = _build_quote(db, payload, user)
@@ -674,11 +746,26 @@ def place_order(
     # A guest views their order by number, so the number must not itself be the
     # capability. Signed-in orders are gated by the owner check and get none.
     order_access_token = secrets.token_urlsafe(32) if user is None else None
+    first_order_conditions = list(contact_conditions)
+    if user is not None:
+        first_order_conditions.append(Order.user_id == user.id)
+    prior_order = db.scalar(
+        select(Order.id)
+        .outerjoin(User, Order.user_id == User.id)
+        .where(or_(*first_order_conditions))
+        .limit(1)
+    )
+    flag_for_review = (
+        prior_order is None
+        and payload.payment_method is PaymentMethodCode.COD
+        and priced.total_paisa >= settings.ORDER_COD_REVIEW_PAISA
+    )
 
     shipping = payload.shipping
     order = Order(
         order_number=order_number,
         access_token=order_access_token,
+        idempotency_key=idempotency_key,
         user_id=user.id if user else None,
         guest_email=None if user else payload.email,
         guest_phone=None if user else shipping.phone,
@@ -713,6 +800,8 @@ def place_order(
         customer_note=payload.customer_note,
         is_gift=bool(payload.gift_message),
         gift_message=payload.gift_message,
+        is_flagged=flag_for_review,
+        fraud_flags={"first_time_high_value_cod": True} if flag_for_review else {},
     )
     db.add(order)
     db.flush()
