@@ -13,6 +13,8 @@
  *    first 401 starts the refresh and the rest wait on the same promise.
  */
 
+import { toast } from 'sonner'
+
 const GUEST_KEY = 'wc-guest-token'
 
 export class ApiError extends Error {
@@ -176,6 +178,27 @@ export async function api<T = unknown>(
 
   if (!response.ok) {
     const error = payload?.error ?? {}
+    if (error.code === 'email_not_verified') {
+      toast.error(
+        error.message ?? 'Please verify your email address first.',
+        {
+          action: {
+            label: 'Resend verification',
+            onClick: () => {
+              void post<{ message: string }>('/auth/resend-verification')
+                .then((result) => toast.success(result.message))
+                .catch((resendError: unknown) =>
+                  toast.error(
+                    resendError instanceof ApiError
+                      ? resendError.message
+                      : 'Could not resend the verification email.',
+                  ),
+                )
+            },
+          },
+        },
+      )
+    }
     throw new ApiError(
       response.status,
       error.code ?? 'unknown_error',

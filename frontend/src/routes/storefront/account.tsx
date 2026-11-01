@@ -427,7 +427,10 @@ function ReturnModal({
       setPicked({})
       setNote('')
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Could not start the return'),
+    onError: (e) => {
+      if (e instanceof ApiError && e.code === 'email_not_verified') return
+      toast.error(e instanceof ApiError ? e.message : 'Could not start the return')
+    },
   })
 
   const anyPicked = Object.values(picked).some((q) => q > 0)

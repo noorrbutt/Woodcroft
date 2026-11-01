@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.core.deps import CurrentUser, DbSession, OptionalUser
+from app.core.deps import CurrentUser, DbSession, VerifiedUser
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.core.money import format_pkr
 from app.models.catalog import Product, ProductQuestion
@@ -148,7 +148,9 @@ def _purchased_line(db, user_id: uuid.UUID, product_id: uuid.UUID) -> OrderItem 
 
 @router.post("/products/{slug}/reviews", response_model=Message,
              status_code=status.HTTP_201_CREATED)
-def create_review(slug: str, payload: ReviewIn, db: DbSession, user: CurrentUser) -> Message:
+def create_review(
+    slug: str, payload: ReviewIn, db: DbSession, user: VerifiedUser
+) -> Message:
     product = db.scalar(select(Product).where(Product.slug == slug))
     if product is None:
         raise NotFoundError("We could not find that piece.")
@@ -269,7 +271,7 @@ def list_questions(slug: str, db: DbSession) -> list[dict]:
 @router.post("/products/{slug}/questions", response_model=Message,
              status_code=status.HTTP_201_CREATED)
 def ask_question(
-    slug: str, payload: QuestionIn, db: DbSession, user: OptionalUser
+    slug: str, payload: QuestionIn, db: DbSession, user: VerifiedUser
 ) -> Message:
     product = db.scalar(select(Product).where(Product.slug == slug))
     if product is None:
@@ -277,8 +279,8 @@ def ask_question(
 
     db.add(ProductQuestion(
         product_id=product.id,
-        user_id=user.id if user else None,
-        asker_name=user.full_name if user else None,
+        user_id=user.id,
+        asker_name=user.full_name,
         body=payload.body,
         # Held until an admin publishes it, so the Q&A block cannot be used as
         # an open comment box.
@@ -361,7 +363,7 @@ def _setting_int(db, key: str, fallback: int) -> int:
 @router.post("/orders/{order_number}/returns", response_model=Message,
              status_code=status.HTTP_201_CREATED)
 def request_return(
-    order_number: str, payload: ReturnIn, db: DbSession, user: CurrentUser
+    order_number: str, payload: ReturnIn, db: DbSession, user: VerifiedUser
 ) -> Message:
     order = db.scalar(
         select(Order)

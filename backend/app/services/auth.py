@@ -18,7 +18,7 @@ import string
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -48,7 +48,8 @@ from app.models.identity import (
     RefreshToken,
     User,
 )
-from app.models.promotion import LoyaltyAccount
+from app.models.ops import StoreSetting
+from app.models.promotion import LoyaltyAccount, Referral
 
 log = logging.getLogger("woodcroft.auth")
 
@@ -124,6 +125,16 @@ def register_user(
     db.add(user)
     db.flush()
 
+    if referrer is not None:
+        db.add(
+            Referral(
+                referrer_id=referrer.id,
+                referred_user_id=user.id,
+                referred_email=user.email,
+                code_used=referred_by_code.upper(),
+            )
+        )
+
     # Every customer gets a loyalty account and default notification settings
     # up front, so nothing downstream has to handle their absence.
     db.add(LoyaltyAccount(user_id=user.id))
@@ -168,7 +179,57 @@ def verify_email(db: Session, raw_token: str) -> User:
         user.email = record.new_email
     user.email_verified_at = _now()
     record.consumed_at = _now()
+    _reward_verified_referrals(db, user)
     return user
+
+
+def _reward_verified_referrals(db: Session, user: User) -> None:
+    """Reward referrals once both the invited customer and referrer verify."""
+    referrals = db.scalars(
+        select(Referral)
+        .where(
+            or_(
+                Referral.referred_user_id == user.id,
+                Referral.referrer_id == user.id,
+            )
+        )
+        .with_for_update()
+    ).all()
+    if not referrals:
+        return
+
+    reward_setting = db.scalar(
+        select(StoreSetting).where(StoreSetting.key == "referral_reward_paisa")
+    )
+    reward_paisa = (
+        reward_setting.value_int
+        if reward_setting is not None and reward_setting.value_int is not None
+        else 50_000
+    )
+    now = _now()
+
+    for referral in referrals:
+        if referral.referred_user_id is None:
+            continue
+        referred = db.get(User, referral.referred_user_id)
+        if referred is None or referred.email_verified_at is None:
+            continue
+        if referral.qualified_at is None:
+            referral.qualified_at = now
+        if referral.rewarded_at is not None:
+            continue
+
+        referrer = db.scalar(
+            select(User)
+            .where(User.id == referral.referrer_id)
+            .with_for_update()
+        )
+        if referrer is None or referrer.email_verified_at is None:
+            continue
+
+        referrer.store_credit_paisa += reward_paisa
+        referral.referrer_reward_paisa = reward_paisa
+        referral.rewarded_at = now
 
 
 # ── Login ────────────────────────────────────────────────────────────────────

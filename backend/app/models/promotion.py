@@ -415,7 +415,7 @@ class Referral(BaseModel):
     referred_email: Mapped[str] = mapped_column(String(255), nullable=False)
     code_used: Mapped[str] = mapped_column(String(16), nullable=False)
 
-    #: Rewards land only after the referred user's first delivered order.
+    #: The referral qualifies when the referred user's email is verified.
     qualifying_order_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("order.id", ondelete="SET NULL")
     )

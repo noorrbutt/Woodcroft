@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -12,6 +14,7 @@ from app.main import app
 from app.models.enums import NotificationStatus
 from app.models.identity import User
 from app.models.ops import NotificationOutbox
+from app.models.promotion import Referral
 
 REGISTER = "/api/v1/auth/register"
 LOGIN = "/api/v1/auth/login"
@@ -318,6 +321,45 @@ class TestEmailVerification:
 
         user = db.scalar(select(User).where(User.email == "ayesha@woodcroft.pk"))
         assert user.email_verified_at is not None
+
+    def test_verification_rewards_referrer_once(self, client, db) -> None:
+        referrer_response = _register(client, email="referrer@woodcroft.pk")
+        referrer_code = referrer_response.json()["user"]["referral_code"]
+        referrer = db.scalar(
+            select(User).where(User.email == "referrer@woodcroft.pk")
+        )
+        referrer.email_verified_at = datetime.now(UTC)
+
+        referred_email = "referred@woodcroft.pk"
+        registered = client.post(
+            REGISTER,
+            json={
+                "email": referred_email,
+                "password": "walnut-table-8",
+                "full_name": "Referred User",
+                "referral_code": referrer_code,
+            },
+        )
+        assert registered.status_code == 201
+
+        message = db.scalar(
+            select(NotificationOutbox).where(
+                NotificationOutbox.template_key == "email_verification",
+                NotificationOutbox.recipient == referred_email,
+            )
+        )
+        token = message.context["verify_url"].split("token=")[1]
+        verified = client.post("/api/v1/auth/verify-email", json={"token": token})
+        assert verified.status_code == 200
+        assert referrer.store_credit_paisa == 50_000
+
+        replay = client.post("/api/v1/auth/verify-email", json={"token": token})
+        assert replay.status_code == 422
+        assert referrer.store_credit_paisa == 50_000
+        referral = db.scalar(
+            select(Referral).where(Referral.referred_email == referred_email)
+        )
+        assert referral.rewarded_at is not None
 
 
 class TestSessions:

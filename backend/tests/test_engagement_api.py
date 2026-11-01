@@ -102,6 +102,20 @@ class TestReviews:
         )
         assert r.status_code == 201
 
+    def test_unverified_customer_cannot_review(self, client, scenario, db) -> None:
+        db.execute(
+            text('UPDATE "user" SET email_verified_at = NULL WHERE id = :u'),
+            {"u": scenario["user_id"]},
+        )
+        h = login(client)
+        r = client.post(
+            f"/api/v1/products/{scenario['product_slug']}/reviews",
+            headers=h,
+            json={"rating": 5, "body": "Please verify before reviewing."},
+        )
+        assert r.status_code == 401
+        assert r.json()["error"]["code"] == "email_not_verified"
+
     def test_new_review_is_held_for_moderation(self, client, scenario, db) -> None:
         h = login(client)
         client.post(f"/api/v1/products/{scenario['product_slug']}/reviews",
@@ -168,10 +182,10 @@ class TestQuestions:
                     headers=h, json={"body": "Is delivery free to Quetta?"})
         assert client.get(f"/api/v1/products/{scenario['product_slug']}/questions").json() == []
 
-    def test_guest_can_ask(self, client, scenario) -> None:
+    def test_guest_cannot_ask(self, client, scenario) -> None:
         r = client.post(f"/api/v1/products/{scenario['product_slug']}/questions",
                         json={"body": "Can a guest ask a question like this?"})
-        assert r.status_code == 201
+        assert r.status_code == 401
 
 
 class TestReturns:

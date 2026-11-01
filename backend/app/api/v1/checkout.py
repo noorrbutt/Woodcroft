@@ -21,6 +21,7 @@ from sqlalchemy.orm import selectinload
 from app.core.config import settings
 from app.core.deps import CurrentUser, DbSession, OptionalUser
 from app.core.errors import (
+    AuthenticationError,
     CartEmptyError,
     CodNotAvailableError,
     ConflictError,
@@ -263,6 +264,11 @@ def _coupon_rejection(db, coupon, user, *, ignore_first_order: bool = False) -> 
 
 def _build_quote(db, payload: QuoteIn, user=None):
     """Resolve a client cart into a priced quote. The prices are ours."""
+    if payload.loyalty_points and user is not None and user.email_verified_at is None:
+        raise AuthenticationError(
+            "Please verify your email address before redeeming loyalty points.",
+            code="email_not_verified",
+        )
     if not payload.lines:
         raise CartEmptyError()
 

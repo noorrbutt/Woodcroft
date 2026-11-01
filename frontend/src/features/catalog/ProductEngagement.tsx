@@ -101,7 +101,10 @@ function WriteReview({ slug }: { slug: string }) {
       setForm({ rating: 5, title: '', body: '' })
       queryClient.invalidateQueries({ queryKey: ['can-review', slug] })
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Could not submit'),
+    onError: (e) => {
+      if (e instanceof ApiError && e.code === 'email_not_verified') return
+      toast.error(e instanceof ApiError ? e.message : 'Could not submit')
+    },
   })
 
   if (!user) {
@@ -256,7 +259,10 @@ function QuestionList({ slug }: { slug: string }) {
       setBody('')
       setOpen(false)
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Could not send'),
+    onError: (e) => {
+      if (e instanceof ApiError && e.code === 'email_not_verified') return
+      toast.error(e instanceof ApiError ? e.message : 'Could not send')
+    },
   })
 
   return (
