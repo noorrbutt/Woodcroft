@@ -19,7 +19,7 @@ import { useAuthStore } from './features/auth/store'
  * Restore the session before the first paint that could depend on it, so a
  * signed-in user does not briefly see the signed-out header.
  *
- * bootstrapAuth only exchanges the stored refresh token for an access token.
+ * bootstrapAuth exchanges the HttpOnly refresh cookie for an access token.
  * It does NOT load the user, and the auth store starts with loading = true.
  * Route guards block on that flag, so without the refreshUser call below both
  * /account and /admin sit on a spinner forever. refreshUser always clears the

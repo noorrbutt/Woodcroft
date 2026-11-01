@@ -31,23 +31,20 @@ export const useAuthStore = create<AuthState>((set) => ({
       password,
       remember_me: rememberMe,
     })
-    auth.setTokens(data.tokens.access_token, data.tokens.refresh_token)
+    auth.setTokens(data.tokens.access_token)
     set({ user: data.user, loading: false })
   },
 
   register: async (input) => {
     const data = await post<AuthResponse>('/auth/register', input)
-    auth.setTokens(data.tokens.access_token, data.tokens.refresh_token)
+    auth.setTokens(data.tokens.access_token)
     set({ user: data.user, loading: false })
   },
 
   logout: async () => {
-    const refresh = auth.refreshToken
     // Fire and forget: the local session must end even if the call fails,
     // otherwise a network blip leaves someone apparently signed in.
-    if (refresh) {
-      post('/auth/logout', { refresh_token: refresh }).catch(() => {})
-    }
+    post('/auth/logout').catch(() => {})
     auth.clear()
     set({ user: null, loading: false })
     toast.success('Signed out')

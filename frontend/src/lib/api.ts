@@ -3,10 +3,8 @@
  *
  * Two things here are worth understanding:
  *
- * 1. The access token lives in memory, never in localStorage. A token sitting
- *    in localStorage is readable by any XSS on the page. The refresh token is
- *    persisted because it has to survive a reload, and it is single-use and
- *    rotating, so a stolen one is good for at most one request.
+ * 1. The access token lives in memory, never in localStorage. The refresh
+ *    token is held in an HttpOnly cookie so JavaScript cannot read it.
  *
  * 2. Refresh is single-flight. When a page fires six requests at once and the
  *    token has just expired, all six get a 401. Without a shared promise they
@@ -16,7 +14,6 @@
  */
 
 const GUEST_KEY = 'wc-guest-token'
-const REFRESH_KEY = 'wc-refresh-token'
 
 export class ApiError extends Error {
   constructor(
@@ -49,18 +46,13 @@ export const auth = {
   get isAuthenticated() {
     return accessToken !== null
   },
-  setTokens(access: string, refresh: string) {
+  setTokens(access: string) {
     accessToken = access
-    safeSet(REFRESH_KEY, refresh)
     listeners.forEach((fn) => fn(true))
   },
   clear() {
     accessToken = null
-    safeRemove(REFRESH_KEY)
     listeners.forEach((fn) => fn(false))
-  },
-  get refreshToken() {
-    return safeGet(REFRESH_KEY)
   },
   subscribe(fn: Listener) {
     listeners.add(fn)
@@ -105,21 +97,17 @@ export const guest = {
 }
 
 async function refreshAccessToken(): Promise<boolean> {
-  const token = auth.refreshToken
-  if (!token) return false
-
   try {
     const response = await fetch('/api/v1/auth/refresh', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: token }),
+      credentials: 'include',
     })
     if (!response.ok) {
       auth.clear()
       return false
     }
     const data = await response.json()
-    auth.setTokens(data.access_token, data.refresh_token)
+    auth.setTokens(data.access_token)
     return true
   } catch {
     auth.clear()
@@ -164,6 +152,7 @@ export async function api<T = unknown>(
 
   const response = await fetch(url, {
     ...rest,
+    credentials: 'include',
     headers,
     body:
       body === undefined
@@ -173,7 +162,7 @@ export async function api<T = unknown>(
           : JSON.stringify(body),
   })
 
-  if (response.status === 401 && !_retried && auth.refreshToken) {
+  if (response.status === 401 && !_retried) {
     const refreshed = await refreshOnce()
     if (refreshed) {
       return api<T>(path, { ...options, _retried: true })
@@ -227,11 +216,11 @@ export async function download(path: string, filename: string): Promise<void> {
   if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
   const url = path.startsWith('/api') ? path : `/api/v1${path}`
 
-  let response = await fetch(url, { headers })
-  if (response.status === 401 && auth.refreshToken && (await refreshOnce())) {
+  let response = await fetch(url, { headers, credentials: 'include' })
+  if (response.status === 401 && (await refreshOnce())) {
     const retryHeaders = new Headers()
     if (accessToken) retryHeaders.set('Authorization', `Bearer ${accessToken}`)
-    response = await fetch(url, { headers: retryHeaders })
+    response = await fetch(url, { headers: retryHeaders, credentials: 'include' })
   }
   if (!response.ok) {
     throw new ApiError(response.status, 'download_failed', 'Could not download the file.')
@@ -265,8 +254,7 @@ function buildQuery(params: Record<string, unknown>): string {
   return query ? `?${query}` : ''
 }
 
-/** Restore a session on boot, if a refresh token survived the reload. */
+/** Restore a session on boot using the HttpOnly refresh cookie. */
 export async function bootstrapAuth(): Promise<boolean> {
-  if (!auth.refreshToken) return false
   return refreshOnce()
 }

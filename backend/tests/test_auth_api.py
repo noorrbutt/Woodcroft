@@ -42,7 +42,7 @@ class TestRegistration:
         assert body["user"]["role"] == "customer"
         assert body["user"]["is_email_verified"] is False
         assert body["tokens"]["access_token"]
-        assert body["tokens"]["refresh_token"]
+        assert "refresh_token" not in body["tokens"]
 
     def test_issues_a_referral_code(self, client) -> None:
         code = _register(client).json()["user"]["referral_code"]
@@ -126,6 +126,12 @@ class TestLogin:
         )
         assert r.status_code == 200
         assert r.json()["tokens"]["access_token"]
+        cookie = r.headers["set-cookie"]
+        assert "wc_rt=" in cookie
+        assert "HttpOnly" in cookie
+        assert "SameSite=lax" in cookie
+        assert "Path=/api/v1/auth" in cookie
+        assert f"Max-Age={settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60}" in cookie
 
     def test_wrong_password_rejected(self, client) -> None:
         _register(client)
@@ -176,32 +182,40 @@ class TestLogin:
 
 class TestTokenRotation:
     def test_refresh_returns_a_new_pair(self, client) -> None:
-        tokens = _register(client).json()["tokens"]
-        r = client.post(
-            "/api/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]}
-        )
+        _register(client)
+        original = client.cookies.get("wc_rt")
+        r = client.post("/api/v1/auth/refresh")
         assert r.status_code == 200
-        assert r.json()["refresh_token"] != tokens["refresh_token"]
+        assert "refresh_token" not in r.json()
+        assert client.cookies.get("wc_rt") != original
+
+    def test_refresh_without_cookie_is_rejected(self, client) -> None:
+        r = client.post("/api/v1/auth/refresh")
+        assert r.status_code == 401
 
     def test_reusing_a_rotated_token_kills_the_session(self, client) -> None:
         """The reuse detection that makes a stolen refresh token near useless."""
-        original = _register(client).json()["tokens"]["refresh_token"]
+        _register(client)
+        original = client.cookies.get("wc_rt")
 
-        rotated = client.post("/api/v1/auth/refresh", json={"refresh_token": original})
+        rotated = client.post("/api/v1/auth/refresh")
         assert rotated.status_code == 200
-        new_token = rotated.json()["refresh_token"]
+        new_token = client.cookies.get("wc_rt")
 
         # Replaying the old token is treated as theft.
-        replay = client.post("/api/v1/auth/refresh", json={"refresh_token": original})
+        client.cookies.set("wc_rt", original, path="/api/v1/auth")
+        replay = client.post("/api/v1/auth/refresh")
         assert replay.status_code == 401
 
         # And the replacement is revoked too, because we cannot tell which
         # party is the attacker.
-        after = client.post("/api/v1/auth/refresh", json={"refresh_token": new_token})
+        client.cookies.set("wc_rt", new_token, path="/api/v1/auth")
+        after = client.post("/api/v1/auth/refresh")
         assert after.status_code == 401
 
     def test_garbage_token_rejected(self, client) -> None:
-        r = client.post("/api/v1/auth/refresh", json={"refresh_token": "not-a-token"})
+        client.cookies.set("wc_rt", "not-a-token", path="/api/v1/auth")
+        r = client.post("/api/v1/auth/refresh")
         assert r.status_code == 401
 
 
@@ -319,10 +333,8 @@ class TestSessions:
         revoked = client.delete(f"/api/v1/auth/sessions/{session_id}", headers=headers)
         assert revoked.status_code == 200
 
-        # The refresh token from that session no longer works.
-        assert client.post(
-            "/api/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]}
-        ).status_code == 401
+        # The refresh cookie from that session no longer works.
+        assert client.post("/api/v1/auth/refresh").status_code == 401
 
 
 class TestGuestSession:

@@ -122,22 +122,24 @@ class TestRefreshReuseSurvivesTeardown:
     ) -> None:
         user = _make_user(fresh_session, "reuse@rollback.pk", "correct-horse-9")
         try:
-            login = real_client.post(
+            real_client.post(
                 LOGIN, json={"email": user.email, "password": "correct-horse-9"}
             )
-            r1 = login.json()["tokens"]["refresh_token"]
+            r1 = real_client.cookies.get("wc_rt")
 
-            rotated = real_client.post(REFRESH, json={"refresh_token": r1})
+            rotated = real_client.post(REFRESH)
             assert rotated.status_code == 200
-            r2 = rotated.json()["refresh_token"]
+            r2 = real_client.cookies.get("wc_rt")
 
             # Replay the already-rotated R1. This must revoke the whole family.
-            replay = real_client.post(REFRESH, json={"refresh_token": r1})
+            real_client.cookies.set("wc_rt", r1, path="/api/v1/auth")
+            replay = real_client.post(REFRESH)
             assert replay.status_code == 401
 
             # R2 must now be dead too. Before the fix the revocation was rolled
             # back and R2 kept working.
-            after = real_client.post(REFRESH, json={"refresh_token": r2})
+            real_client.cookies.set("wc_rt", r2, path="/api/v1/auth")
+            after = real_client.post(REFRESH)
             assert after.status_code == 401
 
             fresh_session.expire_all()

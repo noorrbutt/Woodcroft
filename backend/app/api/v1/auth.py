@@ -6,7 +6,8 @@ import uuid
 from datetime import UTC, datetime
 
 import jwt
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, Request, Response, status
+from sqlalchemy import select
 
 from app.core.config import settings
 from app.core.deps import (
@@ -16,9 +17,10 @@ from app.core.deps import (
     user_agent,
 )
 from app.core.errors import NotFoundError
+from app.core.permissions import Role
 from app.core.ratelimit import limiter
-from app.core.security import decode_token
-from app.models.identity import NotificationPreference
+from app.core.security import decode_token, hash_token
+from app.models.identity import NotificationPreference, RefreshToken
 from app.schemas.auth import (
     AuthResponse,
     ChangePasswordRequest,
@@ -27,7 +29,6 @@ from app.schemas.auth import (
     LoginRequest,
     NotificationPreferenceOut,
     NotificationPreferenceUpdate,
-    RefreshRequest,
     RegisterRequest,
     ResetPasswordRequest,
     SessionOut,
@@ -45,17 +46,37 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 FRONTEND = settings.PUBLIC_URL
 
 
-def _tokens(access: str, refresh: str) -> TokenPair:
+def _tokens(access: str) -> TokenPair:
     return TokenPair(
         access_token=access,
-        refresh_token=refresh,
         expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
+
+
+def _set_refresh_cookie(response: Response, refresh: str, *, remember_me: bool) -> None:
+    response.set_cookie(
+        key="wc_rt",
+        value=refresh,
+        httponly=True,
+        samesite="lax",
+        secure=settings.is_production,
+        path=f"{settings.API_V1_PREFIX}/auth",
+        max_age=(
+            settings.REFRESH_TOKEN_REMEMBER_ME_DAYS
+            if remember_me
+            else settings.REFRESH_TOKEN_EXPIRE_DAYS
+        )
+        * 24
+        * 60
+        * 60,
     )
 
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit(settings.RATE_LIMIT_REGISTER)
-def register(request: Request, payload: RegisterRequest, db: DbSession) -> AuthResponse:
+def register(
+    request: Request, response: Response, payload: RegisterRequest, db: DbSession
+) -> AuthResponse:
     user, raw_token = auth_service.register_user(
         db,
         email=payload.email,
@@ -80,50 +101,68 @@ def register(request: Request, payload: RegisterRequest, db: DbSession) -> AuthR
     access, refresh = auth_service.issue_tokens(
         db, user, user_agent=user_agent(request), ip_address=client_ip(request)
     )
-    return AuthResponse(user=UserOut.from_user(user), tokens=_tokens(access, refresh))
+    _set_refresh_cookie(response, refresh, remember_me=False)
+    return AuthResponse(user=UserOut.from_user(user), tokens=_tokens(access))
 
 
 @router.post("/login", response_model=AuthResponse)
 @limiter.limit(settings.RATE_LIMIT_LOGIN)
-def login(request: Request, payload: LoginRequest, db: DbSession) -> AuthResponse:
+def login(
+    request: Request, response: Response, payload: LoginRequest, db: DbSession
+) -> AuthResponse:
     user = auth_service.authenticate(
         db, email=payload.email, password=payload.password
     )
+    remember_me = payload.remember_me and user.role not in {Role.ADMIN, Role.STAFF}
     access, refresh = auth_service.issue_tokens(
         db,
         user,
-        remember_me=payload.remember_me,
+        remember_me=remember_me,
         user_agent=user_agent(request),
         ip_address=client_ip(request),
     )
-    return AuthResponse(user=UserOut.from_user(user), tokens=_tokens(access, refresh))
+    _set_refresh_cookie(response, refresh, remember_me=remember_me)
+    return AuthResponse(user=UserOut.from_user(user), tokens=_tokens(access))
 
 
 @router.post("/refresh", response_model=TokenPair)
 @limiter.limit("30/minute")
-def refresh_tokens(request: Request, payload: RefreshRequest, db: DbSession) -> TokenPair:
+def refresh_tokens(
+    request: Request, response: Response, db: DbSession
+) -> TokenPair:
+    refresh_token = request.cookies.get("wc_rt", "")
+    stored_token = db.scalar(
+        select(RefreshToken).where(
+            RefreshToken.token_hash == hash_token(refresh_token)
+        )
+    )
+    remember_me = bool(stored_token and stored_token.remember_me)
     _, access, refresh = auth_service.rotate_refresh_token(
         db,
-        payload.refresh_token,
+        refresh_token,
         user_agent=user_agent(request),
         ip_address=client_ip(request),
     )
-    return _tokens(access, refresh)
+    _set_refresh_cookie(response, refresh, remember_me=remember_me)
+    return _tokens(access)
 
 
 @router.post("/logout", response_model=Message)
-def logout(payload: RefreshRequest, db: DbSession) -> Message:
+def logout(request: Request, response: Response, db: DbSession) -> Message:
     """End the current session only. Other devices stay signed in."""
+    refresh_token = request.cookies.get("wc_rt", "")
     try:
-        claims = decode_token(payload.refresh_token, expected_type="refresh")
+        claims = decode_token(refresh_token, expected_type="refresh")
     except jwt.PyJWTError:
         # An expired or malformed token is already unusable, so report success
         # rather than making the user look at an error while signing out.
+        response.delete_cookie(key="wc_rt", path=f"{settings.API_V1_PREFIX}/auth")
         return Message(message="Signed out.")
 
     auth_service.revoke_session(
         db, uuid.UUID(claims["sub"]), uuid.UUID(claims["sid"])
     )
+    response.delete_cookie(key="wc_rt", path=f"{settings.API_V1_PREFIX}/auth")
     return Message(message="Signed out.")
 
 
