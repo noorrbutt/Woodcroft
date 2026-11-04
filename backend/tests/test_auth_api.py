@@ -2,19 +2,24 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
+from slowapi import Limiter as SlowApiLimiter
 from sqlalchemy import select
 
 from app.core.config import settings
 from app.core.deps import get_db
+from app.core.errors import InvalidCredentialsError
+from app.core.ratelimit import limiter
 from app.main import app
 from app.models.enums import NotificationStatus
 from app.models.identity import User
 from app.models.ops import NotificationOutbox
 from app.models.promotion import Referral
+from app.services import auth as auth_service
 
 REGISTER = "/api/v1/auth/register"
 LOGIN = "/api/v1/auth/login"
@@ -143,6 +148,61 @@ class TestLogin:
         )
         assert r.status_code == 401
         assert r.json()["error"]["code"] == "invalid_credentials"
+
+    def test_wrong_password_when_redis_rate_limit_storage_is_unavailable(
+        self, monkeypatch, caplog
+    ) -> None:
+        monkeypatch.setattr(
+            settings, "RATELIMIT_STORAGE_URI", "redis://127.0.0.1:1"
+        )
+        redis_limiter = SlowApiLimiter(
+            key_func=limiter._key_func,
+            default_limits=[],
+            enabled=True,
+            storage_uri=settings.RATELIMIT_STORAGE_URI,
+            storage_options={
+                "socket_connect_timeout": 2,
+                "socket_timeout": 2,
+            },
+            swallow_errors=True,
+            in_memory_fallback_enabled=True,
+        )
+        monkeypatch.setattr(limiter, "enabled", True)
+        monkeypatch.setattr(limiter, "_storage", redis_limiter._storage)
+        monkeypatch.setattr(limiter, "_limiter", redis_limiter._limiter)
+        monkeypatch.setattr(limiter, "_storage_dead", False)
+        caplog.set_level(logging.WARNING, logger="woodcroft.ratelimit")
+
+        def reject_credentials(*args, **kwargs):
+            raise InvalidCredentialsError()
+
+        monkeypatch.setattr(
+            auth_service, "authenticate", reject_credentials
+        )
+        monkeypatch.setitem(app.dependency_overrides, get_db, lambda: None)
+
+        with TestClient(app) as client:
+            response = client.post(
+                LOGIN,
+                json={
+                    "email": "ayesha@woodcroft.pk",
+                    "password": "wrong-password",
+                },
+            )
+
+        assert response.status_code == 401
+        warnings = [
+            record
+            for record in caplog.records
+            if record.name == "woodcroft.ratelimit"
+            and record.levelno == logging.WARNING
+        ]
+        assert len(warnings) == 1
+        assert all(
+            record.levelno < logging.ERROR
+            for record in caplog.records
+            if record.name == "woodcroft.ratelimit"
+        )
 
     def test_unknown_email_gives_the_same_error(self, client) -> None:
         """Login must not reveal which addresses have accounts."""

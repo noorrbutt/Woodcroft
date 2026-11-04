@@ -10,11 +10,15 @@ Nothing else has to change.
 
 from __future__ import annotations
 
+import logging
+
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.core.config import settings
 from app.core.security import decode_token
+
+log = logging.getLogger("woodcroft.ratelimit")
 
 
 def _identify(request) -> str:
@@ -37,6 +41,12 @@ def _identify(request) -> str:
     return get_remote_address(request)
 
 
+storage_options = (
+    {"socket_connect_timeout": 2, "socket_timeout": 2}
+    if settings.RATELIMIT_STORAGE_URI
+    else {}
+)
+
 limiter = Limiter(
     key_func=_identify,
     default_limits=[],
@@ -45,4 +55,8 @@ limiter = Limiter(
     # instance has its own memory, so point RATELIMIT_STORAGE_URI at Redis
     # (e.g. Upstash) and the limits become shared and effective again.
     storage_uri=settings.RATELIMIT_STORAGE_URI or "memory://",
+    storage_options=storage_options,
+    swallow_errors=True,
+    in_memory_fallback_enabled=True,
 )
+limiter.logger = log
