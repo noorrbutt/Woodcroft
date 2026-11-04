@@ -5,7 +5,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { ApiError, post } from '@/lib/api'
-import { Button, Checkbox, Field, Input, Spinner } from '@/components/ui'
+import { Button, Checkbox, Field, Input, PasswordInput, Spinner } from '@/components/ui'
 import { useAuthStore } from '@/features/auth/store'
 import type { ApiMessage } from '@/lib/types'
 
@@ -75,8 +75,8 @@ export function LoginPage() {
                  value={email} onChange={(e) => setEmail(e.target.value)} />
         </Field>
         <Field label="Password" id="password">
-          <Input id="password" type="password" autoComplete="current-password" required
-                 value={password} onChange={(e) => setPassword(e.target.value)} />
+          <PasswordInput id="password" autoComplete="current-password" required
+                         value={password} onChange={(e) => setPassword(e.target.value)} />
         </Field>
         <div className="flex items-center justify-between">
           <Checkbox label="Remember me" checked={remember}
@@ -165,8 +165,8 @@ export function RegisterPage() {
         </Field>
         <Field label="Password" id="password" error={fieldErrors.password}
                hint="At least 8 characters" required>
-          <Input id="password" type="password" required autoComplete="new-password"
-                 value={form.password} onChange={bind('password')} />
+          <PasswordInput id="password" required autoComplete="new-password"
+                         value={form.password} onChange={bind('password')} />
         </Field>
         <label className="flex items-start gap-2.5 text-xs text-muted">
           <input
@@ -282,8 +282,8 @@ export function ResetPasswordPage() {
       <form onSubmit={submit} className="mt-8 space-y-4">
         {error && <ErrorBox message={error} />}
         <Field label="New password" id="password" hint="At least 8 characters">
-          <Input id="password" type="password" required autoComplete="new-password"
-                 value={password} onChange={(e) => setPassword(e.target.value)} />
+          <PasswordInput id="password" required autoComplete="new-password"
+                         value={password} onChange={(e) => setPassword(e.target.value)} />
         </Field>
         <p className="text-xs text-faint">
           Resetting your password signs you out on every other device.

@@ -219,6 +219,7 @@
   }
   .wc-input::placeholder,
   .wc-textarea::placeholder { color: var(--wc-text-tertiary); }
+  .wc-input::-ms-reveal { display: none; }
   .wc-input:focus-visible,
   .wc-select:focus-visible,
   .wc-textarea:focus-visible {

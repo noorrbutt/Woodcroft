@@ -29,6 +29,7 @@ import {
   Input,
   Modal,
   QuantityStepper,
+  PasswordInput,
   Select,
   Skeleton,
   Textarea,
@@ -1109,15 +1110,15 @@ export function AccountSecurity() {
           }}
         >
           <Field label="Current password" id="current" error={errors.current_password}>
-            <Input
-              id="current" type="password" required autoComplete="current-password"
+            <PasswordInput
+              id="current" required autoComplete="current-password"
               value={form.current_password}
               onChange={(e) => setForm((c) => ({ ...c, current_password: e.target.value }))}
             />
           </Field>
           <Field label="New password" id="new" error={errors.password} hint="At least 8 characters">
-            <Input
-              id="new" type="password" required autoComplete="new-password"
+            <PasswordInput
+              id="new" required autoComplete="new-password"
               value={form.password}
               onChange={(e) => setForm((c) => ({ ...c, password: e.target.value }))}
             />

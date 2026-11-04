@@ -20,7 +20,7 @@ import {
   type TextareaHTMLAttributes,
 } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, ChevronRight, Star, X } from 'lucide-react'
+import { Check, ChevronRight, Eye, EyeOff, Star, X } from 'lucide-react'
 
 import { cn } from '@/lib/cn'
 import { formatPkr } from '@/lib/format'
@@ -123,6 +123,31 @@ export function Field({ label, error, hint, required, children, id }: FieldProps
 export const Input = ({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) => (
   <input className={cn('wc-input', className)} {...props} />
 )
+
+type PasswordInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>
+
+export function PasswordInput({ className, ...props }: PasswordInputProps) {
+  const [shown, setShown] = useState(false)
+
+  return (
+    <div className="relative">
+      <Input
+        {...props}
+        type={shown ? 'text' : 'password'}
+        className={cn('pr-12', className)}
+      />
+      <button
+        type="button"
+        aria-label={shown ? 'Hide password' : 'Show password'}
+        aria-pressed={shown}
+        onClick={() => setShown((current) => !current)}
+        className="absolute inset-y-0 right-0 flex min-h-11 min-w-11 items-center justify-center rounded-r text-muted hover:text-ink focus-visible:ring-2 focus-visible:ring-[var(--wc-focus)]"
+      >
+        {shown ? <EyeOff size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
+      </button>
+    </div>
+  )
+}
 
 export const Textarea = ({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) => (
   <textarea className={cn('wc-textarea', className)} rows={4} {...props} />
