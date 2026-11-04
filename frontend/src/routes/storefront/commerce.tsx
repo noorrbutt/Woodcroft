@@ -35,6 +35,7 @@ import {
   Textarea,
 } from '@/components/ui'
 import { useAuthStore } from '@/features/auth/store'
+import { FreeShippingProgress } from '@/features/cart/FreeShippingProgress'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import {
   lineTotalPaisa,
@@ -76,6 +77,7 @@ interface Quote {
   gift_card_error: string | null
   loyalty_points_earned: number
   free_shipping: boolean
+  free_shipping_threshold_paisa: number
   cod_available: boolean
   item_count: number
 }
@@ -259,6 +261,15 @@ export function CartPage() {
         <aside className="lg:sticky lg:top-28 lg:self-start">
           <div className="wc-panel p-5">
             <h2 className="wc-eyebrow mb-4">Order summary</h2>
+
+            {quote && (
+              <div className="mb-5">
+                <FreeShippingProgress
+                  subtotal={subtotal}
+                  threshold={quote.free_shipping_threshold_paisa}
+                />
+              </div>
+            )}
 
             <form
               className="mb-5 flex gap-2"

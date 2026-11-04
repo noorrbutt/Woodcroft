@@ -155,6 +155,7 @@ class QuoteOut(Schema):
     gift_card_error: str | None = None
     loyalty_points_earned: int
     free_shipping: bool
+    free_shipping_threshold_paisa: int
     cod_available: bool
     item_count: int
 
@@ -483,6 +484,7 @@ def _build_quote(db, payload: QuoteIn, user=None):
     return priced, meta, {
         "cod_available": cod_available,
         "free_shipping": free_shipping,
+        "free_shipping_threshold_paisa": free_over,
         "coupon": resolved_coupon,
         "gift_card": gift_card,
         "gift_card_error": gift_card_error,
@@ -538,6 +540,7 @@ def _quote_out(priced, meta, extra) -> QuoteOut:
         gift_card_error=extra.get("gift_card_error"),
         loyalty_points_earned=priced.loyalty_points_earned,
         free_shipping=extra["free_shipping"],
+        free_shipping_threshold_paisa=extra["free_shipping_threshold_paisa"],
         cod_available=extra["cod_available"],
         item_count=priced.item_count,
     )

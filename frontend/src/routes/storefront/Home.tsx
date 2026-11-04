@@ -9,6 +9,7 @@ import { useReveal } from '@/hooks/useReveal'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { Button, SectionHeading, Skeleton } from '@/components/ui'
 import { ProductCard, ProductGrid } from '@/features/catalog/ProductCard'
+import { RecentlyViewedRow } from '@/features/catalog/RecentlyViewedRow'
 import type { Category, ProductList } from '@/lib/types'
 
 /**
@@ -473,6 +474,7 @@ export function HomePage() {
         tone="sunken"
         ghost
       />
+      <RecentlyViewedRow />
       <Story />
       <ProductRail
         numeral="05"

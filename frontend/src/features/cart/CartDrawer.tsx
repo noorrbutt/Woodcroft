@@ -1,23 +1,40 @@
 import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { post } from '@/lib/api'
 import { ShoppingBag, Trash2 } from 'lucide-react'
 
 import { Drawer, EmptyState, QuantityStepper } from '@/components/ui'
 import { formatPkr } from '@/lib/format'
+import { FreeShippingProgress } from './FreeShippingProgress'
 import {
   lineTotalPaisa,
   linePersonalizationPaisa,
   useCartStore,
 } from './store'
 
-const FREE_SHIPPING_THRESHOLD = 2_000_000
+interface ShippingQuote {
+  free_shipping_threshold_paisa: number
+}
 
 export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const lines = useCartStore((state) => state.lines)
   const updateQuantity = useCartStore((state) => state.updateQuantity)
   const remove = useCartStore((state) => state.remove)
   const subtotal = useCartStore((state) => state.subtotalPaisa())
-
-  const shortfall = FREE_SHIPPING_THRESHOLD - subtotal
+  const shippingQuote = useQuery({
+    queryKey: ['cart-shipping-threshold', lines],
+    queryFn: () =>
+      post<ShippingQuote>('/checkout/quote', {
+        lines: lines.map((line) => ({
+          variant_id: line.variantId,
+          quantity: line.quantity,
+          personalization: Object.fromEntries(
+            line.personalization.map((entry) => [entry.key, entry.value]),
+          ),
+        })),
+      }),
+    enabled: open && lines.length > 0,
+  })
 
   return (
     <Drawer
@@ -66,17 +83,12 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
         />
       ) : (
         <>
-          {shortfall > 0 && (
-            <div className="mb-4 border border-line bg-sunken px-3 py-2.5 text-xs">
-              Add <strong>{formatPkr(shortfall)}</strong> more for free delivery.
-              <div className="mt-2 h-1 overflow-hidden bg-[var(--wc-border-subtle)]">
-                <div
-                  className="h-full bg-[var(--wc-brass)] transition-[width] duration-500"
-                  style={{
-                    width: `${Math.min(100, (subtotal / FREE_SHIPPING_THRESHOLD) * 100)}%`,
-                  }}
-                />
-              </div>
+          {shippingQuote.data && (
+            <div className="mb-4">
+              <FreeShippingProgress
+                subtotal={subtotal}
+                threshold={shippingQuote.data.free_shipping_threshold_paisa}
+              />
             </div>
           )}
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -24,6 +24,7 @@ import {
   Skeleton,
 } from '@/components/ui'
 import { ProductGrid } from '@/features/catalog/ProductCard'
+import { RecentlyViewedRow, useRecentlyViewedStore } from '@/features/catalog/RecentlyViewedRow'
 import { ProductEngagement } from '@/features/catalog/ProductEngagement'
 import {
   useCartStore,
@@ -267,8 +268,11 @@ function ProductBody({ slug }: { slug: string }) {
   const [selected, setSelected] = useState<Record<string, string>>({})
   const [quantity, setQuantity] = useState(1)
   const [personalization, setPersonalization] = useState<Record<string, string>>({})
+  const [stickyCtaVisible, setStickyCtaVisible] = useState(false)
+  const mainCtaRef = useRef<HTMLDivElement>(null)
 
   const addToCart = useCartStore((state) => state.add)
+  const recordRecentlyViewed = useRecentlyViewedStore((state) => state.record)
   const wishlisted = useWishlistStore((state) => state.slugs.includes(slug))
   const toggleWishlist = useWishlistStore((state) => state.toggle)
 
@@ -291,6 +295,20 @@ function ProductBody({ slug }: { slug: string }) {
     queryFn: () => get<RatingBreakdown>(`/products/${slug}/rating`),
     enabled: Boolean(slug),
   })
+
+  useEffect(() => {
+    if (!product) return
+
+    recordRecentlyViewed(product)
+    const target = mainCtaRef.current
+    if (!target) return
+
+    const observer = new IntersectionObserver(([entry]) => {
+      setStickyCtaVisible(!entry.isIntersecting)
+    })
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [product, recordRecentlyViewed])
 
   /* One value must be chosen for every option type before a concrete variant is
      resolved. A product with no option types has a single variant, which is
@@ -542,7 +560,7 @@ function ProductBody({ slug }: { slug: string }) {
             </div>
           )}
 
-          <div className="mt-7 flex flex-wrap items-center gap-3">
+          <div ref={mainCtaRef} className="mt-7 flex flex-wrap items-center gap-3">
             <QuantityStepper
               value={quantity}
               onChange={setQuantity}
@@ -732,6 +750,27 @@ function ProductBody({ slug }: { slug: string }) {
           <ProductGrid products={related.slice(0, 4)} />
         </section>
       )}
+
+      <RecentlyViewedRow excludeId={product.id} />
+
+      {stickyCtaVisible && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-[var(--wc-surface)]/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-lg backdrop-blur md:hidden">
+          <div className="mx-auto flex max-w-2xl items-center gap-3">
+            <span className="shrink-0 font-medium tabular-nums">
+              {formatPkr(unitPrice)}
+            </span>
+            <Button
+              size="lg"
+              onClick={handleAdd}
+              disabled={!complete || !variant?.stock.is_in_stock}
+              className="min-w-0 flex-1"
+            >
+              Add to cart
+            </Button>
+          </div>
+        </div>
+      )}
+      <div className="h-20 md:hidden" aria-hidden />
     </div>
   )
 }
