@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Check, FileDown, Heart, Truck } from 'lucide-react'
+import { Check, FileDown, Heart, MessageCircle, Share2, Truck } from 'lucide-react'
 
 import { get } from '@/lib/api'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { cn } from '@/lib/cn'
 import { formatDimensions, formatPkr, formatWeight } from '@/lib/format'
+import { wa, whatsappShareUrl } from '@/lib/whatsapp'
 import {
   Accordion,
   Badge,
@@ -379,6 +380,26 @@ function ProductBody({ slug }: { slug: string }) {
 
   const unitPrice = variant?.price.paisa ?? product.price.paisa
   const totalPrice = (unitPrice + personalizationTotal) * quantity
+  const productUrl =
+    typeof window === 'undefined'
+      ? `/product/${product.slug}`
+      : `${window.location.origin}/product/${product.slug}`
+  const whatsappOrderUrl = wa(
+    `Hi Woodcroft, I'm interested in ${product.name} (${variant?.name ?? variant?.sku ?? 'selected options'}) ${productUrl}`,
+  )
+  const shareText = `${product.name} ${productUrl}`
+  const shareUrl = whatsappOrderUrl ? whatsappShareUrl(shareText) : null
+
+  const shareProduct = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (typeof navigator.share !== 'function') return
+    event.preventDefault()
+    void navigator
+      .share({ title: product.name, text: shareText, url: productUrl })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        toast.error('Could not share this product.')
+      })
+  }
 
   const handleAdd = () => {
     if (!variant) {
@@ -552,6 +573,32 @@ function ProductBody({ slug }: { slug: string }) {
               />
             </button>
           </div>
+
+          {whatsappOrderUrl && shareUrl && (
+            <div className="mt-3 flex flex-wrap gap-3">
+              <a
+                href={whatsappOrderUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Order ${product.name} on WhatsApp`}
+                className="wc-btn wc-btn-outline inline-flex items-center gap-2"
+              >
+                <MessageCircle size={15} strokeWidth={1.5} />
+                Order on WhatsApp
+              </a>
+              <a
+                href={shareUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Share ${product.name}`}
+                onClick={shareProduct}
+                className="wc-btn wc-btn-ghost inline-flex items-center gap-2"
+              >
+                <Share2 size={15} strokeWidth={1.5} />
+                Share
+              </a>
+            </div>
+          )}
 
           {personalizationTotal > 0 && (
             <p className="mt-3 text-sm tabular-nums">

@@ -105,6 +105,11 @@ $env:WOODCROFT_ADMIN_PASSWORD = "<strong 10+ char password>"
 The frontend is a static bundle (`npm run build`) plus two pieces of host
 configuration, both in [`frontend/vercel.json`](frontend/vercel.json):
 
+Set `VITE_WHATSAPP_NUMBER` in the storefront build environment to enable the
+product inquiry, product share, and cart WhatsApp buttons. Use digits only,
+including the country code (for example `923001234567`), with no leading `+`.
+Leave it unset or empty to hide the buttons.
+
 - **Rewrites.** `/api/*` proxies to the API deployment, and everything else falls
   back to `index.html` so client routing survives a hard refresh of
   `/product/...` or `/admin/...`. Keeping the API on the same origin is what lets

@@ -8,6 +8,7 @@ import {
   Check,
   ChevronLeft,
   Lock,
+  MessageCircle,
   PackageCheck,
   ShieldCheck,
   ShoppingBag,
@@ -18,6 +19,7 @@ import {
 import { ApiError, api, get, post } from '@/lib/api'
 import { cn } from '@/lib/cn'
 import { formatDate, formatPkr } from '@/lib/format'
+import { wa } from '@/lib/whatsapp'
 import {
   Badge,
   Breadcrumbs,
@@ -132,6 +134,16 @@ export function CartPage() {
     queryFn: () => post<Quote>('/checkout/quote', payload),
     enabled: lines.length > 0,
   })
+  const whatsappCartUrl = wa(
+    [
+      'Hi Woodcroft, I would like to order:',
+      ...lines.map(
+        (line) =>
+          `- ${line.productName}${line.variantName ? ` (${line.variantName})` : ''} x ${line.quantity}`,
+      ),
+      `Total: ${formatPkr(quote?.total.paisa ?? subtotal)}`,
+    ].join('\n'),
+  )
 
   if (lines.length === 0) {
     return (
@@ -339,6 +351,18 @@ export function CartPage() {
             <Link to="/checkout" className="wc-btn wc-btn-primary wc-btn-lg mt-5 w-full">
               <Lock size={13} strokeWidth={1.5} /> Checkout
             </Link>
+            {whatsappCartUrl && (
+              <a
+                href={whatsappCartUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Order cart on WhatsApp"
+                className="wc-btn wc-btn-outline mt-3 inline-flex w-full items-center justify-center gap-2"
+              >
+                <MessageCircle size={15} strokeWidth={1.5} />
+                Order on WhatsApp
+              </a>
+            )}
 
             {quote && quote.loyalty_points_earned > 0 && (
               <p className="mt-3 text-center text-xs text-[var(--wc-brass-text)]">

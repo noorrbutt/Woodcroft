@@ -209,6 +209,7 @@ are most likely to touch:
 | `RATELIMIT_STORAGE_URI` | empty | Empty is in-memory. Point at Redis on serverless. |
 | `SEED_IMAGE_MODE` | `generated` | `curated` fetches photographs and needs `PEXELS_API_KEY`. |
 | `ENABLE_BACKGROUND_WORKER` | `true` | Off during tests and on serverless. |
+| `VITE_WHATSAPP_NUMBER` | empty | Storefront build-time setting; digits only with country code, no `+`. Empty hides WhatsApp buttons. |
 
 ---
 
