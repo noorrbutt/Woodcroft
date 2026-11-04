@@ -161,7 +161,13 @@ export function CartPage() {
                 <li key={line.lineId} className="flex gap-4 py-6">
                   <Link to={`/product/${line.productSlug}`} className="shrink-0">
                     {line.imageUrl ? (
-                      <img src={line.imageUrl} alt="" className="size-28 object-cover" />
+                      <img
+                        src={line.imageUrl}
+                        alt=""
+                        className="size-28 object-cover"
+                        loading="lazy"
+                        decoding="async"
+                      />
                     ) : (
                       <div className="size-28 bg-sunken" />
                     )}
@@ -734,7 +740,13 @@ export function CheckoutPage() {
                 {quote?.lines.map((line) => (
                   <li key={line.variant_id} className="flex gap-3">
                     {line.image_url ? (
-                      <img src={line.image_url} alt="" className="size-14 shrink-0 object-cover" />
+                      <img
+                        src={line.image_url}
+                        alt=""
+                        className="size-14 shrink-0 object-cover"
+                        loading="lazy"
+                        decoding="async"
+                      />
                     ) : (
                       <div className="size-14 shrink-0 bg-sunken" />
                     )}
@@ -930,7 +942,13 @@ export function OrderConfirmationPage() {
             {order.items.map((item) => (
               <li key={item.id} className="flex gap-4 py-4 first:pt-0">
                 {item.image_url ? (
-                  <img src={item.image_url} alt="" className="size-16 object-cover" />
+                  <img
+                    src={item.image_url}
+                    alt=""
+                    className="size-16 object-cover"
+                    loading="lazy"
+                    decoding="async"
+                  />
                 ) : (
                   <div className="size-16 bg-sunken" />
                 )}
@@ -1095,6 +1113,8 @@ export function ComparePage() {
                         src={product.primary_image.thumb_url}
                         alt=""
                         className="mb-2 aspect-4/5 w-full object-cover"
+                        loading="lazy"
+                        decoding="async"
                       />
                     )}
                     <span className="font-medium">{product.name}</span>

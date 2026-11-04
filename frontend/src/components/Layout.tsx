@@ -46,14 +46,22 @@ export function Wordmark({ className }: { className?: string }) {
         <img
           src="/brand/logo.png"
           alt="Woodcroft"
+          width={675}
+          height={220}
           className="wc-logo-light h-8 w-auto"
+          loading="lazy"
+          decoding="async"
           onError={() => setLogoOk(false)}
         />
         <img
           src="/brand/logo-dark.png"
           alt=""
           aria-hidden
+          width={675}
+          height={220}
           className="wc-logo-dark h-8 w-auto"
+          loading="lazy"
+          decoding="async"
         />
       </span>
     )
@@ -185,6 +193,7 @@ function SearchBar({ onClose }: { onClose?: () => void }) {
                       alt=""
                       className="size-9 object-cover"
                       loading="lazy"
+                      decoding="async"
                     />
                   ) : (
                     <span className="flex size-9 items-center justify-center bg-sunken text-faint">

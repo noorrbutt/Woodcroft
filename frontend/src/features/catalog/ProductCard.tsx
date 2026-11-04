@@ -21,10 +21,8 @@ import type { ProductCard as Product } from '@/lib/types'
  */
 export function ProductCard({
   product,
-  eager = false,
 }: {
   product: Product
-  eager?: boolean
 }) {
   const [loaded, setLoaded] = useState(false)
   const wishlisted = useWishlistStore((state) => state.slugs.includes(product.slug))
@@ -48,6 +46,8 @@ export function ProductCard({
               alt=""
               aria-hidden
               className="absolute inset-0 size-full scale-110 object-cover blur-xl"
+              loading="lazy"
+              decoding="async"
             />
           )}
 
@@ -57,8 +57,8 @@ export function ProductCard({
               srcSet={image.srcset}
               sizes="(min-width: 1280px) 22vw, (min-width: 768px) 30vw, 45vw"
               alt={image.alt_text || product.name}
-              loading={eager ? 'eager' : 'lazy'}
-              fetchPriority={eager ? 'high' : 'auto'}
+              loading="lazy"
+              decoding="async"
               onLoad={() => setLoaded(true)}
               className={cn(
                 'size-full object-cover transition-[opacity,transform] duration-700 ease-[var(--ease-wc-out)]',
@@ -179,10 +179,10 @@ export function ProductGrid({
         : products?.map((product, index) =>
             stagger ? (
               <div key={product.id} style={idx(index)}>
-                <ProductCard product={product} eager={index < 4} />
+                <ProductCard product={product} />
               </div>
             ) : (
-              <ProductCard key={product.id} product={product} eager={index < 4} />
+              <ProductCard key={product.id} product={product} />
             ),
           )}
     </div>

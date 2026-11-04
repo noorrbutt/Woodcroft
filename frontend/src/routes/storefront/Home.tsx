@@ -43,6 +43,7 @@ function Hero() {
           alt=""
           aria-hidden
           fetchPriority="high"
+          decoding="async"
           /* Bias slightly right so the chair and dresser stay in frame on the
              tighter phone crop; recentre on wider screens. */
           className="wc-kenburns size-full object-cover [object-position:62%_center] sm:object-center"
@@ -188,6 +189,7 @@ function Collections() {
                       alt=""
                       aria-hidden
                       loading="lazy"
+                      decoding="async"
                       className="absolute inset-0 size-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
                     />
                     <div
@@ -358,6 +360,7 @@ function Story() {
                 sizes="(min-width: 1024px) 55vw, 100vw"
                 alt="A craftsman planing a solid board in the Woodcroft workshop"
                 loading="lazy"
+                decoding="async"
                 className="w-full rounded-sm object-cover shadow-xl"
                 style={{ aspectRatio: '5 / 4' }}
               />

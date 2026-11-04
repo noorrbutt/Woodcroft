@@ -96,6 +96,7 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
                         alt=""
                         className="size-20 object-cover"
                         loading="lazy"
+                        decoding="async"
                       />
                     ) : (
                       <div className="size-20 bg-sunken" />

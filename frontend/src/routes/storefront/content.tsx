@@ -101,6 +101,7 @@ export function JournalPage() {
                       src={post.cover_image_url}
                       alt=""
                       loading="lazy"
+                      decoding="async"
                       className="size-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
                     />
                   ) : (
@@ -179,6 +180,10 @@ export function JournalPostPage() {
         <img
           src={post.cover_image_url}
           alt=""
+          width={1000}
+          height={1250}
+          loading="lazy"
+          decoding="async"
           className="mx-auto mt-10 max-w-4xl"
         />
       )}

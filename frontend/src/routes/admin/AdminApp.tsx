@@ -1063,6 +1063,7 @@ function ProductImagesModal({ product, onClose }: { product: any; onClose: () =>
                 alt={image.alt_text}
                 className="aspect-4/5 w-full object-cover"
                 loading="lazy"
+                decoding="async"
               />
               <div className="mt-2 flex items-center justify-between gap-1">
                 {image.is_primary ? (

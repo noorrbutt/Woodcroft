@@ -229,6 +229,8 @@ export function AccountOverview() {
                           src={item.image_url}
                           alt=""
                           className="size-12 border-2 border-[var(--wc-surface)] object-cover"
+                          loading="lazy"
+                          decoding="async"
                         />
                       ) : null,
                     )}
@@ -318,7 +320,13 @@ export function AccountOrders() {
             {order.items.map((item) => (
               <li key={item.id} className="flex items-center gap-2">
                 {item.image_url && (
-                  <img src={item.image_url} alt="" className="size-12 object-cover" />
+                  <img
+                    src={item.image_url}
+                    alt=""
+                    className="size-12 object-cover"
+                    loading="lazy"
+                    decoding="async"
+                  />
                 )}
                 <span className="text-xs text-muted">
                   {item.product_name} ×{item.quantity}
@@ -601,7 +609,13 @@ export function AccountOrderDetail() {
           {order.items.map((item) => (
             <li key={item.id} className="flex gap-4 py-4 first:pt-0">
               {item.image_url && (
-                <img src={item.image_url} alt="" className="size-16 object-cover" />
+                <img
+                  src={item.image_url}
+                  alt=""
+                  className="size-16 object-cover"
+                  loading="lazy"
+                  decoding="async"
+                />
               )}
               <div className="flex-1">
                 <p className="text-sm font-medium">{item.product_name}</p>

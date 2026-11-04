@@ -57,7 +57,13 @@ function Gallery({ product }: { product: ProductDetail }) {
                 i === index ? 'border-[var(--wc-brass)]' : 'border-transparent hover:border-control',
               )}
             >
-              <img src={thumb.thumb_url} alt="" className="aspect-4/5 w-full object-cover" />
+              <img
+                src={thumb.thumb_url}
+                alt=""
+                className="aspect-4/5 w-full object-cover"
+                loading="lazy"
+                decoding="async"
+              />
             </button>
           ))}
         </div>
@@ -83,6 +89,7 @@ function Gallery({ product }: { product: ProductDetail }) {
             sizes="(min-width: 1024px) 48vw, 92vw"
             alt={image.alt_text || product.name}
             fetchPriority="high"
+            decoding="async"
             className="size-full object-cover transition-transform duration-300 ease-out"
             style={{
               transform: zoom ? 'scale(1.7)' : 'scale(1)',
