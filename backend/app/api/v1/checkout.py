@@ -66,6 +66,7 @@ from app.services.pricing import (
     QuoteRequest,
     quote,
 )
+from app.services.promotions import active_flash_sale_discounts
 
 router = APIRouter(tags=["checkout"])
 
@@ -292,6 +293,9 @@ def _build_quote(db, payload: QuoteIn, user=None):
             select(StockLevel).where(StockLevel.variant_id.in_(variant_ids))
         ).all()
     }
+    sale_discounts = active_flash_sale_discounts(
+        db, list({variant.product_id for variant in variants.values()})
+    )
 
     engine_lines: list[LineInput] = []
     meta: list[dict] = []
@@ -343,6 +347,7 @@ def _build_quote(db, payload: QuoteIn, user=None):
                 if product.tax_rate_bp is not None
                 else (product.category.tax_rate_bp if product.category else None),
                 personalizations=tuple(choices),
+                flash_sale_bp=sale_discounts.get(product.id, 0),
                 product_id=product.id,
             )
         )

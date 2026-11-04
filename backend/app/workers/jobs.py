@@ -10,7 +10,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -303,7 +303,7 @@ def publish_scheduled_products(db: Session, payload: dict[str, Any]) -> None:
 
 @handler("activate_flash_sales")
 def activate_flash_sales(db: Session, payload: dict[str, Any]) -> None:
-    """Turn flash sales on and off at their boundaries."""
+    """Synchronize flash-sale status flags with their time windows."""
     now = _now()
 
     db.execute(
@@ -317,7 +317,10 @@ def activate_flash_sales(db: Session, payload: dict[str, Any]) -> None:
     )
     db.execute(
         update(FlashSale)
-        .where(FlashSale.ends_at <= now, FlashSale.is_active.is_(True))
+        .where(
+            or_(FlashSale.starts_at > now, FlashSale.ends_at <= now),
+            FlashSale.is_active.is_(True),
+        )
         .values(is_active=False)
     )
 

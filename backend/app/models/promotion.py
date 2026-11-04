@@ -189,7 +189,7 @@ class DiscountRule(BaseModel):
 
 
 class FlashSale(BaseModel):
-    """A time-boxed sale with a countdown, activated by the background worker."""
+    """A time-boxed sale; ``is_active`` is synchronized by the background worker."""
 
     __tablename__ = "flash_sale"
 

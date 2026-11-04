@@ -190,6 +190,7 @@ def search_products(
     min_rating: int | None = None,
     in_stock_only: bool = False,
     on_sale_only: bool = False,
+    flash_sale_product_ids: list[uuid.UUID] | None = None,
     featured_only: bool = False,
     new_arrivals_only: bool = False,
     bestsellers_only: bool = False,
@@ -216,7 +217,10 @@ def search_products(
     if min_rating is not None:
         conditions.append(Product.rating_average >= min_rating)
     if on_sale_only:
-        conditions.append(Product.compare_at_price_paisa.is_not(None))
+        sale_conditions = [Product.compare_at_price_paisa.is_not(None)]
+        if flash_sale_product_ids:
+            sale_conditions.append(Product.id.in_(flash_sale_product_ids))
+        conditions.append(or_(*sale_conditions))
     if featured_only:
         conditions.append(Product.is_featured.is_(True))
     if new_arrivals_only:

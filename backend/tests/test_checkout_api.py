@@ -8,15 +8,20 @@ someone finds it.
 
 from __future__ import annotations
 
+import uuid
+from datetime import UTC, datetime, timedelta
+
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 from app.core.deps import get_db
 from app.main import app
+from app.models.catalog import ProductVariant
 from app.models.enums import PaymentMethodCode
 from app.models.ops import ShippingZone, StoreSetting
 from app.models.order import PaymentMethod
+from app.models.promotion import FlashSale, FlashSaleItem
 
 
 @pytest.fixture
@@ -114,6 +119,60 @@ class TestQuote:
         assert response.status_code == 200
         body = response.json()
         assert body["lines"][0]["unit_price"]["paisa"] == 1_000_000
+        assert body["subtotal"]["paisa"] == 1_000_000
+
+    def test_in_window_flash_sale_applies_before_status_job_runs(
+        self, client, db, variant
+    ) -> None:
+        product_id = db.scalar(
+            select(ProductVariant.product_id).where(
+                ProductVariant.id == uuid.UUID(variant)
+            )
+        )
+        now = datetime.now(UTC)
+        sale = FlashSale(
+            name="Timed sale",
+            slug="timed-sale",
+            discount_bp=2000,
+            starts_at=now - timedelta(minutes=1),
+            ends_at=now + timedelta(minutes=1),
+            is_active=False,
+        )
+        db.add(sale)
+        db.flush()
+        db.add(FlashSaleItem(flash_sale_id=sale.id, product_id=product_id))
+        db.flush()
+
+        body = quote(client, variant).json()
+
+        assert body["lines"][0]["line_total"]["paisa"] == 800_000
+        assert body["subtotal"]["paisa"] == 800_000
+
+    def test_out_of_window_flash_sale_does_not_apply_with_stale_active_flag(
+        self, client, db, variant
+    ) -> None:
+        product_id = db.scalar(
+            select(ProductVariant.product_id).where(
+                ProductVariant.id == uuid.UUID(variant)
+            )
+        )
+        now = datetime.now(UTC)
+        sale = FlashSale(
+            name="Expired sale",
+            slug="expired-sale",
+            discount_bp=2000,
+            starts_at=now - timedelta(minutes=2),
+            ends_at=now - timedelta(minutes=1),
+            is_active=True,
+        )
+        db.add(sale)
+        db.flush()
+        db.add(FlashSaleItem(flash_sale_id=sale.id, product_id=product_id))
+        db.flush()
+
+        body = quote(client, variant).json()
+
+        assert body["lines"][0]["line_total"]["paisa"] == 1_000_000
         assert body["subtotal"]["paisa"] == 1_000_000
 
     def test_inclusive_tax_is_extracted_not_added(self, client, variant) -> None:

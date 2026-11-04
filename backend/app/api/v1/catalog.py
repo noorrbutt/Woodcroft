@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 
 from app.core.deps import CurrentShopper, DbSession
 from app.core.errors import NotFoundError
+from app.core.money import apply_bp
 from app.models.catalog import (
     Category,
     Product,
@@ -37,6 +38,7 @@ from app.schemas.catalog import (
 )
 from app.schemas.common import Money
 from app.services import catalog as svc
+from app.services.promotions import active_flash_sale_discounts
 
 router = APIRouter(tags=["catalog"])
 
@@ -48,7 +50,16 @@ def _discount_percent(price: int, compare: int | None) -> int | None:
     return round((compare - price) / compare * 100)
 
 
-def _card(product: Product, *, in_stock: bool | None = None) -> ProductCardOut:
+def _card(
+    product: Product,
+    *,
+    in_stock: bool | None = None,
+    flash_sale_bp: int = 0,
+) -> ProductCardOut:
+    price = product.base_price_paisa - apply_bp(product.base_price_paisa, flash_sale_bp)
+    compare_at = product.compare_at_price_paisa
+    if flash_sale_bp:
+        compare_at = max(compare_at or product.base_price_paisa, product.base_price_paisa)
     primary = next(
         (i for i in product.images if i.is_primary),
         product.images[0] if product.images else None,
@@ -59,15 +70,13 @@ def _card(product: Product, *, in_stock: bool | None = None) -> ProductCardOut:
         slug=product.slug,
         subtitle=product.subtitle,
         category_name=product.category.name if product.category else None,
-        price=Money.of(product.base_price_paisa),
+        price=Money.of(price),
         compare_at_price=(
-            Money.of(product.compare_at_price_paisa)
-            if product.compare_at_price_paisa
+            Money.of(compare_at)
+            if compare_at
             else None
         ),
-        discount_percent=_discount_percent(
-            product.base_price_paisa, product.compare_at_price_paisa
-        ),
+        discount_percent=_discount_percent(price, compare_at),
         primary_image=ImageOut.from_model(primary) if primary else None,
         rating_average=product.rating_average,
         rating_count=product.rating_count,
@@ -81,6 +90,32 @@ def _card(product: Product, *, in_stock: bool | None = None) -> ProductCardOut:
         is_new_arrival=product.is_new_arrival,
         is_bestseller=product.is_bestseller,
     )
+
+
+def _cards(
+    db: DbSession,
+    products: list[Product],
+    *,
+    in_stock_by_product: dict[uuid.UUID, bool] | None = None,
+    sale_discounts: dict[uuid.UUID, int] | None = None,
+) -> list[ProductCardOut]:
+    discounts = (
+        sale_discounts
+        if sale_discounts is not None
+        else active_flash_sale_discounts(db, [product.id for product in products])
+    )
+    return [
+        _card(
+            product,
+            in_stock=(
+                in_stock_by_product.get(product.id)
+                if in_stock_by_product is not None
+                else None
+            ),
+            flash_sale_bp=discounts.get(product.id, 0),
+        )
+        for product in products
+    ]
 
 
 def _stock_out(variant: ProductVariant, level) -> StockOut:
@@ -167,6 +202,7 @@ def list_products(
     page: int = Query(1, ge=1),
     per_page: int = Query(24, ge=1, le=60),
 ) -> ProductListOut:
+    sale_discounts = active_flash_sale_discounts(db)
     category_obj = None
     if category:
         category_obj = db.scalar(select(Category).where(Category.slug == category))
@@ -184,6 +220,7 @@ def list_products(
         min_rating=min_rating,
         in_stock_only=in_stock,
         on_sale_only=on_sale,
+        flash_sale_product_ids=list(sale_discounts),
         featured_only=featured,
         new_arrivals_only=new_arrivals,
         bestsellers_only=bestsellers,
@@ -208,7 +245,12 @@ def list_products(
         _log_search(db, q, result["total"])
 
     return ProductListOut(
-        items=[_card(p, in_stock=in_stock_map.get(p.id, False)) for p in products],
+        items=_cards(
+            db,
+            products,
+            in_stock_by_product=in_stock_map,
+            sale_discounts=sale_discounts,
+        ),
         total=result["total"],
         page=result["page"],
         per_page=result["per_page"],
@@ -271,6 +313,7 @@ def get_product(slug: str, db: DbSession, shopper: CurrentShopper) -> ProductDet
     if product is None:
         raise NotFoundError("We could not find that piece.")
 
+    flash_sale_bp = active_flash_sale_discounts(db, [product.id]).get(product.id, 0)
     stock = svc.stock_for_variants(db, [v.id for v in product.variants])
 
     # Which option values still lead to something buyable, so the picker can
@@ -287,6 +330,7 @@ def get_product(slug: str, db: DbSession, shopper: CurrentShopper) -> ProductDet
             (stock.get(v.id).available if stock.get(v.id) else 0) > 0 or v.is_preorder
             for v in product.variants
         ),
+        flash_sale_bp=flash_sale_bp,
     )
 
     _record_view(db, product, shopper)
@@ -335,11 +379,18 @@ def get_product(slug: str, db: DbSession, shopper: CurrentShopper) -> ProductDet
                 id=v.id,
                 sku=v.sku,
                 name=v.name,
-                price=Money.of(v.effective_price_paisa(product)),
+                price=Money.of(
+                    v.effective_price_paisa(product)
+                    - apply_bp(v.effective_price_paisa(product), flash_sale_bp)
+                ),
                 compare_at_price=(
                     Money.of(v.compare_at_price_paisa or product.compare_at_price_paisa)
                     if (v.compare_at_price_paisa or product.compare_at_price_paisa)
-                    else None
+                    else (
+                        Money.of(v.effective_price_paisa(product))
+                        if flash_sale_bp
+                        else None
+                    )
                 ),
                 option_value_ids=[ov.option_value_id for ov in v.option_values],
                 stock=_stock_out(v, stock.get(v.id)),
@@ -410,7 +461,7 @@ def related(slug: str, db: DbSession) -> list[ProductCardOut]:
     product = svc.get_product_by_slug(db, slug)
     if product is None:
         raise NotFoundError("We could not find that piece.")
-    return [_card(p) for p in svc.related_products(db, product)]
+    return _cards(db, svc.related_products(db, product))
 
 
 @router.get("/products/{slug}/bought-together", response_model=list[ProductCardOut])
@@ -418,7 +469,7 @@ def bought_together(slug: str, db: DbSession) -> list[ProductCardOut]:
     product = svc.get_product_by_slug(db, slug)
     if product is None:
         raise NotFoundError("We could not find that piece.")
-    return [_card(p) for p in svc.frequently_bought_together(db, product)]
+    return _cards(db, svc.frequently_bought_together(db, product))
 
 
 @router.get("/products/{slug}/rating", response_model=RatingBreakdown)
@@ -466,7 +517,9 @@ def recently_viewed(
         svc._with_cards(svc.live_products()).where(Product.id.in_(product_ids))
     ).all()
     order = {pid: i for i, pid in enumerate(product_ids)}
-    return [_card(p) for p in sorted(products, key=lambda p: order.get(p.id, 99))]
+    return _cards(
+        db, sorted(products, key=lambda p: order.get(p.id, 99))
+    )
 
 
 @router.get("/compare", response_model=list[ProductDetailOut])
