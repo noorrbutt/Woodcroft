@@ -7,6 +7,7 @@ before marking the job done, in which case the job runs again.
 from __future__ import annotations
 
 import logging
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -365,6 +366,26 @@ def retry_failed_notifications(db: Session, payload: dict[str, Any]) -> None:
         _attempt(message)
     if rows:
         log.info("retried %d failed notifications", len(rows))
+
+
+@handler("send_notification")
+def send_notification(db: Session, payload: dict[str, Any]) -> None:
+    """Deliver one queued notification, safely ignoring completed deliveries."""
+    from app.models.ops import NotificationOutbox
+    from app.services.notifications import _attempt
+
+    message_id = uuid.UUID(payload["notification_id"])
+    message = db.scalar(
+        select(NotificationOutbox)
+        .where(NotificationOutbox.id == message_id)
+        .with_for_update()
+    )
+    if message is None:
+        raise LookupError(f"Notification {message_id} was not found.")
+    if message.status is NotificationStatus.SENT:
+        return
+
+    _attempt(message)
 
 
 #: Jobs the scheduler re-queues on a fixed cadence, with the gap between runs.

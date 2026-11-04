@@ -376,7 +376,7 @@ class TestPlaceOrder:
         assert balance == 8
         assert reason == "sale"
 
-    def test_confirmation_lands_in_the_outbox(self, client, variant, db) -> None:
+    def test_confirmation_is_queued_in_the_outbox(self, client, variant, db) -> None:
         self._place(client, variant)
         rows = db.execute(
             text("SELECT channel, template_key, recipient, status "
@@ -386,8 +386,26 @@ class TestPlaceOrder:
         assert "email" in channels
         assert channels["email"][1] == "order_confirmation"
         assert channels["email"][2] == "guest@example.pk"
-        assert channels["email"][3] == "sent"
+        assert channels["email"][3] == "queued"
         assert "sms" in channels
+        notification_id = db.execute(
+            text(
+                "SELECT id FROM notification_outbox "
+                "WHERE template_key = 'order_confirmation'"
+            )
+        ).scalar_one()
+        job = db.execute(
+            text(
+                "SELECT job_type, dedupe_key, payload->>'notification_id' "
+                "FROM job_queue "
+                "WHERE job_type = 'send_notification'"
+            )
+        ).one()
+        assert job == (
+            "send_notification",
+            f"notif:{notification_id}",
+            str(notification_id),
+        )
 
     def test_cannot_order_more_than_stock(self, client, variant) -> None:
         # 20 is above the stock of 10 but below the COD ceiling of 30 units,

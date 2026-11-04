@@ -1,8 +1,8 @@
 """Notification delivery.
 
 Every message is rendered and written to ``notification_outbox`` before any
-attempt to send it. That gives three things at once: a complete audit trail, a
-working notification system with no SMTP or SMS account, and an Admin ->
+attempt to send it. Critical account messages are sent inline; other emails are
+queued for the worker. That gives a complete audit trail and an Admin ->
 Notifications screen where you can read exactly what a customer received.
 
 Drivers are selected by ``EMAIL_DRIVER`` / ``SMS_DRIVER``. The default,
@@ -107,7 +107,7 @@ class SmtpDriver(NotificationDriver):
         if message.body_html:
             email.add_alternative(message.body_html, subtype="html")
 
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as smtp:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=5) as smtp:
             # Verify the relay's certificate. Without a context, smtplib falls
             # back to an unverified TLS session, so a man in the middle could
             # capture the SMTP credentials and every reset/verification token.
@@ -232,7 +232,7 @@ def send(
     order_id: uuid.UUID | None = None,
     recipient_name: str | None = None,
 ) -> NotificationOutbox:
-    """Render, store and attempt delivery. Never raises on delivery failure.
+    """Render and store a message, delivering inline only when necessary.
 
     A failed email must not roll back the order that triggered it, so problems
     are recorded on the row and surfaced in admin instead of propagating.
@@ -295,16 +295,29 @@ def send(
         body_html=html or None,
         body_text=text,
         driver=driver_for(channel).name,
+        status=NotificationStatus.QUEUED,
         context=context,
     )
 
     db.add(message)
-    _attempt(message)
+    if channel is NotificationChannel.EMAIL and key not in ALWAYS_SEND:
+        db.flush()
+        from app.workers.runner import enqueue
+
+        enqueue(
+            db,
+            "send_notification",
+            {"notification_id": str(message.id)},
+            dedupe_key=f"notif:{message.id}",
+        )
+    else:
+        _attempt(message)
     return message
 
 
 def _attempt(message: NotificationOutbox) -> None:
     driver = driver_for(message.channel)
+    message.driver = driver.name
     # A column default only lands at INSERT, so a row built in memory still
     # has attempts = None here.
     message.attempts = (message.attempts or 0) + 1
@@ -323,7 +336,6 @@ def resend(db: Session, message_id: uuid.UUID) -> NotificationOutbox | None:
     message = db.get(NotificationOutbox, message_id)
     if message is None:
         return None
-    message.driver = driver_for(message.channel).name
     _attempt(message)
     return message
 
