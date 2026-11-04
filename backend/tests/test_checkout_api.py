@@ -298,6 +298,45 @@ class TestPlaceOrder:
         ).scalar_one()
         assert remaining == 8
 
+    def test_guest_cancel_requires_matching_token(self, client, variant, db) -> None:
+        placed = self._place(client, variant).json()
+
+        response = client.post(
+            f"/api/v1/orders/{placed['order_number']}/cancel?token=wrong"
+        )
+
+        assert response.status_code == 404
+        remaining = db.execute(
+            text("SELECT on_hand FROM stock_level WHERE variant_id = :v"),
+            {"v": variant},
+        ).scalar_one()
+        assert remaining == 8
+
+    def test_guest_cancel_with_token_restores_stock(self, client, variant, db) -> None:
+        placed = self._place(client, variant).json()
+
+        response = client.post(
+            f"/api/v1/orders/{placed['order_number']}/cancel"
+            f"?token={placed['access_token']}"
+        )
+
+        assert response.status_code == 200
+        assert response.json()["message"] == "Your order has been cancelled."
+        remaining = db.execute(
+            text("SELECT on_hand FROM stock_level WHERE variant_id = :v"),
+            {"v": variant},
+        ).scalar_one()
+        assert remaining == 10
+        recipient = db.execute(
+            text(
+                "SELECT recipient FROM notification_outbox "
+                "WHERE template_key = 'order_cancelled' AND order_id = "
+                "(SELECT id FROM \"order\" WHERE order_number = :number)"
+            ),
+            {"number": placed["order_number"]},
+        ).scalar_one()
+        assert recipient == "guest@example.pk"
+
     def test_idempotency_key_reuses_order_without_second_stock_deduction(
         self, client, variant, db
     ) -> None:

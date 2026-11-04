@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   Check,
@@ -868,6 +868,7 @@ export function CheckoutPage() {
 interface OrderResponse {
   order_number: string
   status_label: string
+  is_cancellable: boolean
   placed_at: string
   items: {
     id: string
@@ -895,6 +896,7 @@ export function OrderConfirmationPage() {
   const { orderNumber } = useParams()
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token')
+  const queryClient = useQueryClient()
   const { data: order, isLoading } = useQuery({
     queryKey: ['order', orderNumber, token],
     queryFn: () =>
@@ -903,6 +905,18 @@ export function OrderConfirmationPage() {
         token ? { token } : undefined,
       ),
     enabled: Boolean(orderNumber),
+  })
+  const cancelOrder = useMutation({
+    mutationFn: () =>
+      post(
+        `/orders/${orderNumber}/cancel${token ? `?token=${encodeURIComponent(token)}` : ''}`,
+      ),
+    onSuccess: () => {
+      toast.success('Your order has been cancelled.')
+      queryClient.invalidateQueries({ queryKey: ['order', orderNumber, token] })
+    },
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : 'Could not cancel this order.'),
   })
 
   if (isLoading) {
@@ -1042,6 +1056,16 @@ export function OrderConfirmationPage() {
         </div>
 
         <div className="mt-8 flex justify-center gap-3">
+          {order.is_cancellable && (
+            <Button
+              type="button"
+              variant="danger"
+              loading={cancelOrder.isPending}
+              onClick={() => cancelOrder.mutate()}
+            >
+              Cancel order
+            </Button>
+          )}
           <Link to="/shop" className="wc-btn wc-btn-outline">Continue shopping</Link>
           <Link to="/account/orders" className="wc-btn wc-btn-primary">View your orders</Link>
         </div>

@@ -1130,14 +1130,30 @@ def get_order(
 
 
 @router.post("/orders/{order_number}/cancel", response_model=Message)
-def cancel_order(order_number: str, db: DbSession, user: CurrentUser) -> Message:
+def cancel_order(
+    order_number: str,
+    db: DbSession,
+    user: OptionalUser,
+    token: Annotated[str | None, Query()] = None,
+) -> Message:
     order = db.scalar(
         select(Order)
-        .where(Order.order_number == order_number, Order.user_id == user.id)
+        .where(Order.order_number == order_number)
         .options(selectinload(Order.items), selectinload(Order.payments))
+        .with_for_update()
     )
     if order is None:
         raise NotFoundError("We could not find that order.")
+    if order.user_id is not None:
+        if user is None or order.user_id != user.id:
+            raise NotFoundError("We could not find that order.")
+    elif (
+        not order.access_token
+        or not token
+        or not secrets.compare_digest(token, order.access_token)
+    ):
+        raise NotFoundError("We could not find that order.")
+
     if not order.is_cancellable:
         raise OrderNotCancellableError(
             "This order has already been dispatched and can no longer be cancelled."
@@ -1149,18 +1165,31 @@ def cancel_order(order_number: str, db: DbSession, user: CurrentUser) -> Message
 
     # Full reversal: stock back, redeemed loyalty back, coupon released, sales
     # count and payment undone. The same helper staff cancellation uses.
-    reverse_order(db, order, actor_id=user.id, note=f"Order {order.order_number} cancelled")
+    actor_id = user.id if order.user_id is not None and user is not None else None
+    reverse_order(db, order, actor_id=actor_id, note=f"Order {order.order_number} cancelled")
 
     db.add(OrderEvent(
         order_id=order.id,
         event_type="status_change",
         message="Cancelled by customer",
         to_status=OrderStatus.CANCELLED,
-        actor_id=user.id,
+        actor_id=actor_id,
     ))
 
+    recipient = (
+        user.email
+        if order.user_id is not None and user is not None
+        else order.guest_email
+    )
+    if recipient is None:
+        raise RuntimeError(f"Order {order.order_number} is missing its contact email.")
     notifications.email(
-        db, "order_cancelled", user.email, user=user, order_id=order.id,
+        db,
+        "order_cancelled",
+        recipient,
+        user=user if order.user_id is not None else None,
+        recipient_name=order.shipping_address.get("name"),
+        order_id=order.id,
         context={"order_number": order.order_number, "reason": "you cancelled it"},
     )
     return Message(message="Your order has been cancelled.")
