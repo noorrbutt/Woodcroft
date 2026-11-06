@@ -148,7 +148,8 @@ class TestQuote:
         body = quote(client, variant).json()
 
         assert body["lines"][0]["line_total"]["paisa"] == 800_000
-        assert body["subtotal"]["paisa"] == 800_000
+        assert body["subtotal"]["paisa"] == 1_000_000
+        assert body["discount"]["paisa"] == 200_000
 
     def test_out_of_window_flash_sale_does_not_apply_with_stale_active_flag(
         self, client, db, variant
