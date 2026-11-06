@@ -27,21 +27,27 @@ def active_flash_sale_discounts(
         return {}
 
     current_time = now or datetime.now(UTC)
-    discount_bp = func.max(
-        func.coalesce(FlashSaleItem.discount_bp, FlashSale.discount_bp)
-    )
-    conditions = [
-        FlashSale.starts_at <= current_time,
-        FlashSale.ends_at > current_time,
-        (FlashSale.max_units.is_(None) | (FlashSale.units_sold < FlashSale.max_units)),
-    ]
-    if product_ids is not None:
-        conditions.append(FlashSaleItem.product_id.in_(product_ids))
-
-    rows = db.execute(
-        select(FlashSaleItem.product_id, discount_bp)
+    discount_bp = func.coalesce(FlashSaleItem.discount_bp, FlashSale.discount_bp)
+    statement = (
+        select(
+            FlashSaleItem.product_id,
+            discount_bp,
+            FlashSale.max_units,
+            FlashSale.units_sold,
+        )
         .join(FlashSale, FlashSale.id == FlashSaleItem.flash_sale_id)
-        .where(*conditions)
-        .group_by(FlashSaleItem.product_id)
-    ).all()
-    return {product_id: rate for product_id, rate in rows}
+        .where(
+            FlashSale.starts_at <= current_time,
+            FlashSale.ends_at > current_time,
+        )
+    )
+    if product_ids is not None:
+        statement = statement.where(FlashSaleItem.product_id.in_(product_ids))
+
+    discounts: dict[uuid.UUID, int] = {}
+    rows = db.execute(statement).all()
+    for product_id, rate, max_units, units_sold in rows:
+        if max_units is not None and units_sold >= max_units:
+            continue
+        discounts[product_id] = max(discounts.get(product_id, 0), rate)
+    return discounts

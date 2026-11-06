@@ -22,6 +22,7 @@ from app.models.enums import PaymentMethodCode
 from app.models.ops import ShippingZone, StoreSetting
 from app.models.order import PaymentMethod
 from app.models.promotion import FlashSale, FlashSaleItem
+from app.services.promotions import active_flash_sale_discounts
 
 
 @pytest.fixture
@@ -143,6 +144,7 @@ class TestQuote:
         db.add(FlashSaleItem(flash_sale_id=sale.id, product_id=product_id))
         db.flush()
 
+        assert active_flash_sale_discounts(db, [product_id]) == {product_id: 2000}
         body = quote(client, variant).json()
 
         assert body["lines"][0]["line_total"]["paisa"] == 800_000
