@@ -1191,7 +1191,7 @@ def cancel_order(
         "order_cancelled",
         recipient,
         user=user if order.user_id is not None else None,
-        recipient_name=order.shipping_address.get("name"),
+        recipient_name=order.shipping_name,
         order_id=order.id,
         context={"order_number": order.order_number, "reason": "you cancelled it"},
     )

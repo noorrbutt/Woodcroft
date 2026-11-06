@@ -134,8 +134,8 @@ class TestQuote:
             name="Timed sale",
             slug="timed-sale",
             discount_bp=2000,
-            starts_at=now - timedelta(minutes=1),
-            ends_at=now + timedelta(minutes=1),
+            starts_at=now - timedelta(days=1),
+            ends_at=now + timedelta(days=1),
             is_active=False,
         )
         db.add(sale)
@@ -391,7 +391,7 @@ class TestPlaceOrder:
         notification_id = db.execute(
             text(
                 "SELECT id FROM notification_outbox "
-                "WHERE template_key = 'order_confirmation'"
+                "WHERE template_key = 'order_confirmation' AND channel = 'email'"
             )
         ).scalar_one()
         job = db.execute(
